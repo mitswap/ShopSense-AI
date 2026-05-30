@@ -1,0 +1,22 @@
+# ShopSense AI — Cursor Rules & Codebase Architecture Guidelines
+
+This file configures AI assistants (Cursor, Windsurf, Claude, Copilot) to understand the technical architecture and coding boundaries of the ShopSense AI project.
+
+## 1. Codebase Architecture
+*   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS 4, Recharts, PapaParse, Zod. Located under `/src`.
+*   **Backend**: Node/Express API routes. Supports Vercel serverless routing, Render Docker, and Hugging Face spaces. Located under `/server` and `/api`.
+*   **Database**: Supabase (PostgreSQL + pgvector). Schema migrations are under `/supabase/migrations`.
+
+## 2. Resiliency & Fallback Guidelines (CRITICAL)
+Always maintain the **Fail-Safe Principle** when modifying features:
+*   **Client-Side Fallbacks**: Any dynamic server route (like RAG, Query, Advice, Root Cause) must have a browser-level JavaScript equivalent located in `src/lib/` (e.g., `nlQuery.ts`, `structuredAdvice.ts`). If the backend API times out or is offline, the frontend MUST intercept the error and render the local client-side calculation instantly.
+*   **LLM Routing**: Primary local engine queries Ollama (`llama3.2` and `deepseek-r1`). Fallback routes through Hugging Face Inference Providers (`Qwen 2.5`) and OpenRouter.
+
+## 3. Coding Conventions & Code Style
+*   **Language**: Strict TypeScript for frontend, ES Modules (`.mjs`) for server backend.
+*   **No Code bloat**: Keep components modular, small, and lightweight.
+*   **Formatting**: Keep standard ESLint and Prettier rules active.
+
+## 4. Security & Environment Variables
+*   **Rule**: NEVER write, import, or commit raw private API keys.
+*   **Ignored Files**: `.env` and `.env.local` must remain in `.gitignore`. Only reference credentials via `process.env` (server) or `import.meta.env` (client).
