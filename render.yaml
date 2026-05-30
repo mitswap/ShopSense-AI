@@ -1,0 +1,32 @@
+# Render Blueprint - API only (free tier friendly, OpenRouter fallback).
+# For true local Ollama on Render, use render.ollama.yaml.
+services:
+  - type: web
+    name: shopsense-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm run start:api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: RENDER
+        value: "true"
+      - key: OLLAMA_ENABLED
+        value: "false"
+      - key: OLLAMA_OPENROUTER_FALLBACK
+        value: "true"
+      - key: OPENROUTER_MODEL
+        value: deepseek/deepseek-r1-distill-llama-70b:free
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: VITE_USE_SUPABASE
+        value: "false"
+      - key: FRONTEND_URL
+        value: https://sme-ai-dashboard.vercel.app

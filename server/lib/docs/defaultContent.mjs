@@ -1,0 +1,198 @@
+/** Default ShopSense AI documentation + YC pitch deck content */
+export function buildDefaultDocsContent() {
+  const version = '1.0.0'
+  const updatedAt = new Date().toISOString()
+
+  return {
+    meta: { version, updatedAt, title: 'ShopSense AI by GremlinMonks', tagline: 'AI copilot for Bangladesh SME retail · BuildFest 2026' },
+    pitch: {
+      problem:
+        'Small apparel shops in Bangladesh run on spreadsheets and gut feel. Owners cannot see stock-out risk, festival demand spikes, or why sales dropped—until cash flow is already hurt.',
+      solution:
+        'ShopSense AI turns a simple CSV export into a live dashboard: forecasting, Bengali owner advice, natural-language shop Q&A, and root-cause explanations—built for non-technical shop owners.',
+      whyNow:
+        'Smartphone adoption, digital payments, and affordable local LLMs (Ollama) make AI-assisted retail ops viable for SMEs without enterprise ERP budgets.',
+      demo:
+        'Upload inventory + sales CSV → instant KPIs → 3 data-backed recommendations → ask “Which product should I stock?” in plain language.',
+      market:
+        '500k+ apparel SMEs in Bangladesh; expand to grocery/pharmacy with same CSV-first pipeline.',
+      businessModel:
+        'Freemium dashboard + Pro (multi-shop, WhatsApp alerts, supplier integrations) + B2B analytics for distributors.',
+      traction:
+        'BuildFest 2026 prototype with live demo data, sub-second rule-based insights, and optional Ollama/OpenRouter enrichment.',
+      competition:
+        'Generic BI tools (too complex), manual Excel (no AI), global ERP (too expensive, not Bengali-first).',
+      advantage:
+        'CSV-native, Bengali advice, festival-aware forecasting (Eid/Puja), dataset-grounded answers (no keyword buckets).',
+      gtm: 'Pilot with 10 Dhaka apparel shops → market via FB groups & distributor partners → mosque-area retail associations.',
+      vision: 'Every neighborhood shop runs with the clarity of a chain retailer—locally, affordably, in their language.',
+    },
+    team: {
+      teamName: 'GremlinMonks — BuildFest 2026',
+      members: [
+        {
+          id: '1',
+          fullName: 'Susmit Debnath Swapnil',
+          role: 'Team Leader / Project Coordinator · Backend & Database Engineer',
+          email: '2022331067@student.sust.edu',
+          photoUrl: '/team/Susmit.png',
+        },
+        {
+          id: '2',
+          fullName: 'Shimul Das',
+          role: 'Business Analyst / Data Scientist · Backend & Database Engineer',
+          email: 'shimuldas1023@gmail.com',
+          photoUrl: '/team/Shimul.jpg',
+        },
+        {
+          id: '3',
+          fullName: 'Dipok Debnath',
+          role: 'UI/UX · Frontend Developer',
+          email: 'thelearnpoke@gmail.com',
+          photoUrl: '/team/Dipok.png',
+        },
+        {
+          id: '4',
+          fullName: 'Maheya Jannat Nilima',
+          role: 'Presentation & Communication Lead',
+          email: 'maheyajannatnilima27@gmail.com',
+          photoUrl: '/team/Nilima.jpg',
+        },
+        {
+          id: '5',
+          fullName: 'Mahmud Hasan Alek',
+          role: 'UI/UX · Frontend Developer',
+          email: 'mahmudhasanalek@gmail.com',
+          photoUrl: '/team/Alek.jpg',
+        },
+      ],
+    },
+    product: {
+      summary:
+        'ShopSense AI is an SME analytics copilot: ingest shop data, visualize KPIs, forecast reorder needs, and get actionable advice in English or Bengali.',
+      users: ['Apparel shop owners', 'Inventory managers', 'Hackathon judges / investors via /docs'],
+      useCases: [
+        'Detect low-stock before stock-outs',
+        'Plan festival inventory uplift',
+        'Ask natural-language questions about sales & stock',
+        'Explain why sales changed (root cause)',
+      ],
+    },
+    features: [
+      { id: 'csv', name: 'Adaptive CSV ingest', status: 'live', description: 'Schema detection + mapping' },
+      { id: 'kpi', name: 'KPI dashboard', status: 'live', description: 'Revenue, stock value, low-stock count' },
+      { id: 'forecast', name: 'Festival-aware forecast', status: 'live', description: 'MA + BD festival multipliers' },
+      { id: 'insight', name: 'Owner advice (3 actions)', status: 'live', description: 'Discount %, reorder units, festival plan' },
+      { id: 'nl', name: 'Shop Analyzer (NL Q&A)', status: 'live', description: 'Question-specific dataset answers' },
+      { id: 'root', name: 'Root cause panel', status: 'live', description: 'Sales change explanations' },
+      { id: 'rag', name: 'Vector RAG knowledge', status: 'live', description: 'Hybrid retrieval + seed' },
+      { id: 'graph', name: 'Knowledge graph view', status: 'live', description: 'Product/festival relationships' },
+      { id: 'bn', name: 'Bengali localization', status: 'live', description: 'UI + advice in Bangla' },
+      { id: 'wa', name: 'WhatsApp alerts', status: 'planned', description: 'Daily reorder digest' },
+      { id: 'multi', name: 'Multi-shop HQ view', status: 'planned', description: 'Franchise / distributor' },
+    ],
+    architectureMermaid: `flowchart TB
+  subgraph Client
+    UI[React SPA on Vercel]
+    Docs["/docs pitch deck"]
+  end
+  subgraph API
+    Render[Render Express API]
+  end
+  subgraph AI
+    Ollama[Ollama llama3.2:1b]
+    DeepSeek[DeepSeek-R1 reasoner]
+    OR[OpenRouter fallback]
+    Rules[Rule-based insight + NL]
+  end
+  subgraph Data
+    LS[localStorage demo]
+    SB[(Supabase optional)]
+  end
+  UI -->|/api proxy| Render
+  Render --> Ollama
+  Render --> DeepSeek
+  Render --> OR
+  Render --> Rules
+  Render --> SB
+  UI --> LS`,
+    dataFlowMermaid: `flowchart LR
+  CSV[CSV Upload] --> Ingest[Schema detect + normalize]
+  Ingest --> Store[(Products + Sales)]
+  Store --> Analytics[Analytics engine]
+  Analytics --> Forecast[Forecast + Alerts]
+  Forecast --> Advice[3 Owner recommendations]
+  Store --> NL[NL Query engine]
+  UserQ[Owner question] --> NL
+  NL --> Answer[Short data-backed answer]
+  Analytics --> RC[Root cause]
+  RAGkb[Knowledge chunks] --> RAG[RAG search]
+  RAG --> Pipeline[LLM enrich optional]`,
+    stack: {
+      frontend: ['React 19', 'Vite 8', 'TypeScript', 'Tailwind CSS 4', 'Recharts', 'TanStack Query'],
+      backend: ['Express 5 on Render', 'Vercel static hosting', 'CORS-enabled API'],
+      database: ['Supabase Postgres', 'pgvector', 'localStorage demo mode'],
+      ai: [
+        'Ollama llama3.2:1b (fast inference)',
+        'DeepSeek-R1:1.5b (reasoner via Ollama)',
+        'OpenRouter fallback (cloud)',
+        'Rule-based insight/NL engines',
+      ],
+      infra: ['Vercel (frontend)', 'Render (API)', 'Supabase optional', 'Docker+Ollama for full GPU stack'],
+    },
+    apis: {
+      exposed: [
+        { method: 'GET', path: '/api/status', auth: 'Public', description: 'System layer health' },
+        { method: 'POST', path: '/api/insight', auth: 'App session', description: 'Owner advice JSON' },
+        { method: 'POST', path: '/api/query/nl', auth: 'App session', description: 'Shop Analyzer Q&A' },
+        { method: 'POST', path: '/api/root-cause', auth: 'App session', description: 'Sales change analysis' },
+        { method: 'POST', path: '/api/schema/detect', auth: 'App session', description: 'CSV column mapping' },
+        { method: 'POST', path: '/api/rag/search', auth: 'Internal', description: 'Hybrid retrieval' },
+        { method: 'GET', path: '/api/docs/*', auth: 'Public / Admin', description: 'Documentation system' },
+      ],
+      external: [
+        { name: 'Ollama', use: 'llama3.2:1b + deepseek-r1:1.5b on Render/Docker' },
+        { name: 'OpenRouter', use: 'Embeddings + cloud LLM fallback when Ollama busy' },
+        { name: 'Supabase', use: 'Auth-ready DB + vectors' },
+      ],
+    },
+    dataLayer: {
+      sources: ['CSV upload (PapaParse)', 'Manual product entry', 'Optional Supabase sync'],
+      processing: ['Zod validation', 'Canonical schema mapping', '30-day rolling metrics'],
+      storage: ['Per-user localStorage key', 'Supabase shops/products/sales tables'],
+      privacy: 'Demo mode keeps data in-browser; production requires tightened RLS and no PII in logs.',
+    },
+    aiLayer: {
+      models: [
+        'llama3.2:1b — Ollama (Shop Analyzer, translation, fast enrich)',
+        'deepseek-r1:1.5b — Ollama reasoner (root cause, complex insight when enabled)',
+        'OpenRouter — fallback embeddings + chat',
+      ],
+      rag: 'Hybrid vector + keyword over knowledge_chunks; variable chunking',
+      personalization: 'Per-shop CSV metrics drive forecasts and advice—not generic templates',
+      explainability: 'Rule-first answers with explicit dataUsed fields; Ollama enrich optional',
+    },
+    roadmap: {
+      short: ['WhatsApp daily digest', 'PDF export for owners', 'Offline PWA'],
+      mid: ['Multi-shop dashboard', 'Supplier PO integration', 'Barcode scan ingest'],
+      long: ['Credit scoring from sales velocity', 'Regional distributor network API'],
+    },
+    performance: {
+      load: 'Single-shop CSV (<50k rows) target: dashboard <3s, NL query <500ms (rule engine)',
+      strategy: 'Rule-first pipelines, RAG_FAST_MODE, disable double LLM fallback, lazy charts',
+    },
+    security: {
+      auth: 'Demo users + docs admin roles; production needs Supabase Auth',
+      rbac: 'owner / admin / super_admin for /docs admin',
+      data: 'Service role server-only; never expose GEMINI_API_KEY to client',
+    },
+    analytics: {
+      kpis: ['Time-to-insight after upload', 'Low-stock detection rate', 'Advice action clicks', '/docs unique visitors'],
+    },
+    changelog: [
+      { version: '1.0.0', date: updatedAt.slice(0, 10), notes: 'Initial /docs module with pitch deck, tech docs, access control' },
+      { version: '0.9.0', date: '2026-05-27', notes: 'Dataset-grounded Shop Analyzer + 3-item owner advice' },
+    ],
+    customSections: [],
+  }
+}

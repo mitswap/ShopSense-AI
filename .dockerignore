@@ -1,0 +1,10 @@
+node_modules
+dist
+.vercel
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+README.md
+CREDENTIALS.md

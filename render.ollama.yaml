@@ -1,0 +1,50 @@
+# Render Blueprint: true Ollama deployment (Docker + paid instance + persistent disk)
+#
+# Use this file path in Render Blueprint settings:
+# Blueprint Path: render.ollama.yaml
+#
+# Notes:
+# - This creates a NEW service name (shopsense-api-ollama) so it does not conflict
+#   with an existing node-runtime service.
+# - Persistent disk is required so model downloads survive restarts/redeploys.
+services:
+  - type: web
+    name: shopsense-api-ollama
+    runtime: docker
+    plan: standard
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RENDER
+        value: "true"
+      - key: OLLAMA_HOST
+        value: 0.0.0.0:11434
+      - key: OLLAMA_BASE_URL
+        value: http://127.0.0.1:11434
+      - key: OLLAMA_MODEL
+        value: llama3.2:1b
+      - key: OLLAMA_REASONER_MODEL
+        value: deepseek-r1:1.5b
+      - key: OLLAMA_AUTO_PULL
+        value: "true"
+      - key: OLLAMA_OPENROUTER_FALLBACK
+        value: "true"
+      - key: OPENROUTER_MODEL
+        value: deepseek/deepseek-r1-distill-llama-70b:free
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: OPENROUTER_SITE_URL
+        sync: false
+    disk:
+      name: ollama-models
+      mountPath: /root/.ollama
+      sizeGB: 30
