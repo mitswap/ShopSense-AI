@@ -1,31 +1,38 @@
 /** Default ShopSense AI documentation + YC pitch deck content */
 export function buildDefaultDocsContent() {
-  const version = '1.0.0'
+  const version = '1.2.0'
   const updatedAt = new Date().toISOString()
 
   return {
-    meta: { version, updatedAt, title: 'ShopSense AI by GremlinMonks', tagline: 'AI copilot for Bangladesh SME retail · BuildFest 2026' },
+    meta: {
+      version,
+      updatedAt,
+      title: 'ShopSense AI by GremlinMonks',
+      tagline: 'AI copilot for Bangladesh SME retail · BuildFest 2026',
+    },
     pitch: {
       problem:
-        'Small apparel shops in Bangladesh run on spreadsheets and gut feel. Owners cannot see stock-out risk, festival demand spikes, or why sales dropped—until cash flow is already hurt.',
+        'Small apparel shops in Bangladesh still run on spreadsheets, supplier memos, and memory. Owners struggle to organize incoming stock, track festival demand, understand sales drops, and react before cash flow is damaged.',
       solution:
-        'ShopSense AI turns a simple CSV export into a live dashboard: forecasting, Bengali owner advice, natural-language shop Q&A, and root-cause explanations—built for non-technical shop owners.',
+        'ShopSense AI turns CSVs and supplier memos into a live retail operating system: additive data ingest, memo OCR, KPI dashboards, festival-aware analytics, Bengali-first shop Q&A, root-cause reasoning, and inventory actions built for non-technical shop owners.',
       whyNow:
-        'Smartphone adoption, digital payments, and affordable local LLMs (Ollama) make AI-assisted retail ops viable for SMEs without enterprise ERP budgets.',
+        'Affordable cloud LLMs, OCR APIs, and browser-first analytics make practical AI retail operations possible for SMEs without ERP budgets, internal data teams, or complex software training.',
       demo:
-        'Upload inventory + sales CSV → instant KPIs → 3 data-backed recommendations → ask “Which product should I stock?” in plain language.',
+        'Upload existing CSV data or a supplier memo image → review extracted rows → open live inventory and analytics → ask “How much should I reorder for Eid?” → receive grounded answers, advice, and product-level root cause reasoning.',
       market:
-        '500k+ apparel SMEs in Bangladesh; expand to grocery/pharmacy with same CSV-first pipeline.',
+        '500k+ apparel SMEs in Bangladesh are an immediate beachhead, with the same workflow extendable to grocery, pharmacy, footwear, and regional distributor-led retail networks.',
       businessModel:
-        'Freemium dashboard + Pro (multi-shop, WhatsApp alerts, supplier integrations) + B2B analytics for distributors.',
+        'Freemium for basic analytics and inventory visibility, Pro for richer advice and branch operations, and future B2B intelligence products for suppliers, distributors, and multi-branch retailers.',
       traction:
-        'BuildFest 2026 prototype with live demo data, sub-second rule-based insights, and optional Ollama/OpenRouter enrichment.',
+        'BuildFest 2026 product-ready prototype with live docs, additive CSV imports, supplier memo OCR, weather advice, festival analytics, bilingual UI, and AI-native reasoning backed by Hugging Face and OpenRouter.',
       competition:
-        'Generic BI tools (too complex), manual Excel (no AI), global ERP (too expensive, not Bengali-first).',
+        'Generic BI tools are too technical, spreadsheets remain manual and reactive, and international ERP systems are too expensive and not localized for Bangla-speaking retail owners.',
       advantage:
-        'CSV-native, Bengali advice, festival-aware forecasting (Eid/Puja), dataset-grounded answers (no keyword buckets).',
-      gtm: 'Pilot with 10 Dhaka apparel shops → market via FB groups & distributor partners → mosque-area retail associations.',
-      vision: 'Every neighborhood shop runs with the clarity of a chain retailer—locally, affordably, in their language.',
+        'CSV-first onboarding, memo-to-inventory OCR, Bangla-ready interface, festival-aware reasoning, dataset-grounded answers, and provider-fallback AI infrastructure make ShopSense much more deployable for real SME shops.',
+      gtm:
+        'Start with Dhaka and Sylhet apparel retailers, demonstrate memo upload plus Eid restock planning, expand through Facebook merchant groups and supplier relationships, then grow into multi-branch retail operations.',
+      vision:
+        'Every neighborhood shop should operate with the clarity, speed, and discipline of a modern retail chain—locally, affordably, and in the owner’s own workflow.',
     },
     team: {
       teamName: 'GremlinMonks — BuildFest 2026',
@@ -69,129 +76,153 @@ export function buildDefaultDocsContent() {
     },
     product: {
       summary:
-        'ShopSense AI is an SME analytics copilot: ingest shop data, visualize KPIs, forecast reorder needs, and get actionable advice in English or Bengali.',
-      users: ['Apparel shop owners', 'Inventory managers', 'Hackathon judges / investors via /docs'],
+        'ShopSense AI is an SME retail copilot that ingests business data, supplier memos, and manual inventory updates to produce grounded analytics, reorder decisions, owner advice, and bilingual AI assistance.',
+      users: ['Apparel shop owners', 'Inventory managers', 'Retail operators', 'Hackathon judges / investors via /docs'],
       useCases: [
-        'Detect low-stock before stock-outs',
-        'Plan festival inventory uplift',
-        'Ask natural-language questions about sales & stock',
-        'Explain why sales changed (root cause)',
+        'Import and merge business data without replacing existing records',
+        'Extract supplier memo rows into inventory with human review',
+        'Detect low stock, slow movers, and dead stock more realistically',
+        'Plan Eid and Puja restocking from historical festival behavior',
+        'Ask natural-language questions about stock, sales, or inventory actions',
+        'Understand why a specific product changed in sales performance',
+        'Get today-specific weather advice for store action and product focus',
       ],
     },
     features: [
-      { id: 'csv', name: 'Adaptive CSV ingest', status: 'live', description: 'Schema detection + mapping' },
-      { id: 'kpi', name: 'KPI dashboard', status: 'live', description: 'Revenue, stock value, low-stock count' },
-      { id: 'forecast', name: 'Festival-aware forecast', status: 'live', description: 'MA + BD festival multipliers' },
-      { id: 'insight', name: 'Owner advice (3 actions)', status: 'live', description: 'Discount %, reorder units, festival plan' },
-      { id: 'nl', name: 'Shop Analyzer (NL Q&A)', status: 'live', description: 'Question-specific dataset answers' },
-      { id: 'root', name: 'Root cause panel', status: 'live', description: 'Sales change explanations' },
-      { id: 'rag', name: 'Vector RAG knowledge', status: 'live', description: 'Hybrid retrieval + seed' },
-      { id: 'graph', name: 'Knowledge graph view', status: 'live', description: 'Product/festival relationships' },
-      { id: 'bn', name: 'Bengali localization', status: 'live', description: 'UI + advice in Bangla' },
-      { id: 'wa', name: 'WhatsApp alerts', status: 'planned', description: 'Daily reorder digest' },
-      { id: 'multi', name: 'Multi-shop HQ view', status: 'planned', description: 'Franchise / distributor' },
+      { id: 'csv', name: 'Adaptive CSV ingest', status: 'live', description: 'Schema detection, flexible mapping, and additive imports' },
+      { id: 'memo', name: 'Supplier memo import', status: 'live', description: 'OCR preview, row review, and confirm-before-update workflow' },
+      { id: 'inventory', name: 'Live inventory operations', status: 'live', description: 'Manual add product, stock updates, unit cost tracking, and memo-driven stock merge' },
+      { id: 'kpi', name: 'KPI dashboard', status: 'live', description: 'Sales, profit, growth, best seller, low stock, and dead stock visibility' },
+      { id: 'forecast', name: 'Festival-aware forecast', status: 'live', description: 'Forecasting and reorder signals with inferred Eid and Puja windows' },
+      { id: 'insight', name: 'Owner advice (3 actions)', status: 'live', description: 'Grounded discount, reorder, and shop action recommendations' },
+      { id: 'nl', name: 'Shop Analyzer', status: 'live', description: 'Chat-style natural language Q&A over uploaded shop data' },
+      { id: 'root', name: 'Individual product analysis', status: 'live', description: 'Per-product sales change explanation and recommended actions' },
+      { id: 'weather', name: 'Weather advice', status: 'live', description: 'Today-specific weather reasoning for city-level shop planning' },
+      { id: 'rag', name: 'Vector RAG knowledge', status: 'live', description: 'Hybrid retrieval with seeded knowledge chunks' },
+      { id: 'graph', name: 'Knowledge graph view', status: 'live', description: 'Product, category, and festival relationship visualization' },
+      { id: 'bn', name: 'Bengali localization', status: 'live', description: 'Bangla UI, labels, and localized assistant-facing copy' },
+      { id: 'multi', name: 'Multi-branch operations', status: 'planned', description: 'Branch-aware inventory and analytics across locations' },
     ],
     architectureMermaid: `flowchart TB
   subgraph Client
     UI[React SPA on Vercel]
-    Docs["/docs pitch deck"]
+    Docs["/docs live pitch + technical docs"]
   end
   subgraph API
-    Render[Render Express API]
+    Express[Express API]
+    Routes[Analytics, NL, Root Cause, Weather, OCR Preview]
   end
-  subgraph AI
-    Ollama[Ollama llama3.2:1b]
-    DeepSeek[DeepSeek-R1 reasoner]
-    OR[OpenRouter fallback]
-    Rules[Rule-based insight + NL]
+  subgraph Intelligence
+    Runtime[AI-native runtime router]
+    HF[Hugging Face primary/fallback]
+    OR[OpenRouter primary/fallback]
+    Rules[Deterministic analytics + insight engines]
+    OCR[OCR.Space primary/fallback]
   end
   subgraph Data
-    LS[localStorage demo]
-    SB[(Supabase optional)]
+    LS[localStorage demo mode]
+    SB[(Supabase optional persistence)]
+    RAG[(Knowledge chunks / pgvector)]
   end
-  UI -->|/api proxy| Render
-  Render --> Ollama
-  Render --> DeepSeek
-  Render --> OR
-  Render --> Rules
-  Render --> SB
-  UI --> LS`,
+  UI -->|/api| Express
+  Express --> Routes
+  Routes --> Runtime
+  Runtime --> HF
+  Runtime --> OR
+  Routes --> OCR
+  Routes --> Rules
+  Routes --> SB
+  Routes --> RAG
+  UI --> LS
+  Docs --> Express`,
     dataFlowMermaid: `flowchart LR
-  CSV[CSV Upload] --> Ingest[Schema detect + normalize]
-  Ingest --> Store[(Products + Sales)]
+  CSV[Business CSV Upload] --> Detect[Schema detect + canonical mapping]
+  Memo[Supplier Memo Image/PDF] --> OCR[OCR preview + row review]
+  Detect --> Merge[Additive merge into shop dataset]
+  OCR --> Merge
+  Manual[Manual product add] --> Merge
+  Merge --> Store[(Products + Sales + row count)]
   Store --> Analytics[Analytics engine]
-  Analytics --> Forecast[Forecast + Alerts]
-  Forecast --> Advice[3 Owner recommendations]
-  Store --> NL[NL Query engine]
+  Analytics --> Health[Low stock / slow movers / dead stock]
+  Analytics --> Festival[Festival inference + festival analytics]
+  Analytics --> Advice[Owner advice]
+  Analytics --> Weather[Weather advice context]
+  Store --> NL[Shop Analyzer]
   UserQ[Owner question] --> NL
-  NL --> Answer[Short data-backed answer]
-  Analytics --> RC[Root cause]
-  RAGkb[Knowledge chunks] --> RAG[RAG search]
-  RAG --> Pipeline[LLM enrich optional]`,
+  NL --> Answer[Grounded answer]
+  Analytics --> Root[Individual product analysis]
+  RAGkb[Knowledge chunks] --> RAG[Hybrid retrieval]
+  RAG --> Runtime[Optional AI enrichment]`,
     stack: {
       frontend: ['React 19', 'Vite 8', 'TypeScript', 'Tailwind CSS 4', 'Recharts', 'TanStack Query'],
-      backend: ['Express 5 on Render', 'Vercel static hosting', 'CORS-enabled API'],
+      backend: ['Express 5 API', 'Vercel-hosted frontend', 'Shared local/serverless source paths'],
       database: ['Supabase Postgres', 'pgvector', 'localStorage demo mode'],
       ai: [
-        'Ollama llama3.2:1b (fast inference)',
-        'DeepSeek-R1:1.5b (reasoner via Ollama)',
-        'OpenRouter fallback (cloud)',
-        'Rule-based insight/NL engines',
+        'Hugging Face Inference Providers',
+        'OpenRouter chat + embeddings',
+        'Optional local Ollama runtime',
+        'OCR.Space for memo extraction',
+        'Deterministic analytics and rule-based guardrails',
       ],
-      infra: ['Vercel (frontend)', 'Render (API)', 'Supabase optional', 'Docker+Ollama for full GPU stack'],
+      infra: ['Vercel (frontend)', 'Render or local Express API', 'Supabase optional persistence', 'Provider key fallback support'],
     },
     apis: {
       exposed: [
-        { method: 'GET', path: '/api/status', auth: 'Public', description: 'System layer health' },
+        { method: 'GET', path: '/api/status', auth: 'Public', description: 'System layer health and provider availability' },
         { method: 'POST', path: '/api/insight', auth: 'App session', description: 'Owner advice JSON' },
         { method: 'POST', path: '/api/query/nl', auth: 'App session', description: 'Shop Analyzer Q&A' },
-        { method: 'POST', path: '/api/root-cause', auth: 'App session', description: 'Sales change analysis' },
-        { method: 'POST', path: '/api/schema/detect', auth: 'App session', description: 'CSV column mapping' },
-        { method: 'POST', path: '/api/rag/search', auth: 'Internal', description: 'Hybrid retrieval' },
+        { method: 'POST', path: '/api/root-cause', auth: 'App session', description: 'Individual product analysis' },
+        { method: 'POST', path: '/api/weather/advice', auth: 'App session', description: 'Today-specific weather reasoning for the shop city' },
+        { method: 'POST', path: '/api/schema/detect', auth: 'App session', description: 'CSV column mapping and detection' },
+        { method: 'POST', path: '/api/memo/preview', auth: 'App session', description: 'Supplier memo OCR preview and row extraction' },
+        { method: 'POST', path: '/api/rag/search', auth: 'Internal', description: 'Hybrid retrieval for seeded knowledge' },
         { method: 'GET', path: '/api/docs/*', auth: 'Public / Admin', description: 'Documentation system' },
       ],
       external: [
-        { name: 'Ollama', use: 'llama3.2:1b + deepseek-r1:1.5b on Render/Docker' },
-        { name: 'OpenRouter', use: 'Embeddings + cloud LLM fallback when Ollama busy' },
-        { name: 'Supabase', use: 'Auth-ready DB + vectors' },
+        { name: 'Hugging Face', use: 'Primary/fallback cloud reasoning and chat completions' },
+        { name: 'OpenRouter', use: 'Primary/fallback cloud reasoning plus embeddings' },
+        { name: 'OCR.Space', use: 'Supplier memo OCR with multi-engine retries' },
+        { name: 'Supabase', use: 'Persistent storage and optional vector knowledge base' },
       ],
     },
     dataLayer: {
-      sources: ['CSV upload (PapaParse)', 'Manual product entry', 'Optional Supabase sync'],
-      processing: ['Zod validation', 'Canonical schema mapping', '30-day rolling metrics'],
-      storage: ['Per-user localStorage key', 'Supabase shops/products/sales tables'],
-      privacy: 'Demo mode keeps data in-browser; production requires tightened RLS and no PII in logs.',
+      sources: ['CSV upload (PapaParse)', 'Supplier memo OCR rows', 'Manual product entry', 'Optional Supabase sync'],
+      processing: ['Schema detection', 'Canonical mapping', 'Festival inference', 'Additive inventory merge', 'Cycle-aware stock health logic'],
+      storage: ['Per-user localStorage key', 'Supabase shops/products/sales tables', 'Internal first stock dates and unit costs'],
+      privacy: 'Demo mode keeps core shop data in-browser; server-side secrets remain backend-only and production should enforce strong RLS and audit practices.',
     },
     aiLayer: {
       models: [
-        'llama3.2:1b — Ollama (Shop Analyzer, translation, fast enrich)',
-        'deepseek-r1:1.5b — Ollama reasoner (root cause, complex insight when enabled)',
-        'OpenRouter — fallback embeddings + chat',
+        'Hugging Face Qwen-class chat models for fast reasoning',
+        'OpenRouter Qwen/OpenAI/Gemini-class model routing for fallback and embeddings',
+        'Optional Ollama local runtime for compatible deployments',
       ],
-      rag: 'Hybrid vector + keyword over knowledge_chunks; variable chunking',
-      personalization: 'Per-shop CSV metrics drive forecasts and advice—not generic templates',
-      explainability: 'Rule-first answers with explicit dataUsed fields; Ollama enrich optional',
+      runtime: 'Task-based provider routing with deterministic fallbacks and provider/key retry order',
+      rag: 'Hybrid vector + keyword retrieval over seeded knowledge chunks',
+      personalization: 'Per-shop products, sales, festival patterns, and inventory state shape every answer',
+      explainability: 'Rules and computed analytics remain first-class so AI responses stay grounded instead of generic',
     },
     roadmap: {
-      short: ['WhatsApp daily digest', 'PDF export for owners', 'Offline PWA'],
-      mid: ['Multi-shop dashboard', 'Supplier PO integration', 'Barcode scan ingest'],
-      long: ['Credit scoring from sales velocity', 'Regional distributor network API'],
+      short: ['Multi-branch selection flow', 'Supplier memo template library', 'Exportable inventory and advice reports'],
+      mid: ['Supplier purchase order workflow', 'WhatsApp alerting', 'Branch comparison analytics'],
+      long: ['Distributor intelligence layer', 'Credit and demand scoring', 'Regional retail operating network'],
     },
     performance: {
-      load: 'Single-shop CSV (<50k rows) target: dashboard <3s, NL query <500ms (rule engine)',
-      strategy: 'Rule-first pipelines, RAG_FAST_MODE, disable double LLM fallback, lazy charts',
+      load: 'Single-shop CSV and memo workflow is optimized for quick dashboard setup, with rule-first analytics and lightweight AI calls.',
+      strategy: 'Shared source parity, provider fallback, additive imports, lazy chart rendering, and review-before-write memo flow keep the product responsive and safer for demos and deployment.',
     },
     security: {
-      auth: 'Demo users + docs admin roles; production needs Supabase Auth',
-      rbac: 'owner / admin / super_admin for /docs admin',
-      data: 'Service role server-only; never expose GEMINI_API_KEY to client',
+      auth: 'Demo owner login for current product, with docs admin separated from app user flow',
+      rbac: 'owner / admin / super_admin roles are respected for docs admin access',
+      data: 'Service role keys stay server-only, and provider credentials are isolated in environment variables with primary/fallback support',
     },
     analytics: {
-      kpis: ['Time-to-insight after upload', 'Low-stock detection rate', 'Advice action clicks', '/docs unique visitors'],
+      kpis: ['Time-to-insight after upload', 'Memo-to-inventory confirmation completion', 'Low-stock detection quality', 'Festival restock recommendation usefulness', '/docs unique visitors'],
     },
     changelog: [
-      { version: '1.0.0', date: updatedAt.slice(0, 10), notes: 'Initial /docs module with pitch deck, tech docs, access control' },
-      { version: '0.9.0', date: '2026-05-27', notes: 'Dataset-grounded Shop Analyzer + 3-item owner advice' },
+      { version: '1.2.0', date: updatedAt.slice(0, 10), notes: 'Added supplier memo OCR, additive import flow, weather advice, improved festival analytics, Bangla cleanup, and provider key fallback support' },
+      { version: '1.1.0', date: '2026-06-10', notes: 'Improved slow mover and dead stock realism, added inventory cycle dates, and upgraded shop analyzer chat UI' },
+      { version: '1.0.0', date: '2026-05-27', notes: 'Initial /docs module with pitch deck, tech docs, and access control' },
     ],
     customSections: [],
   }

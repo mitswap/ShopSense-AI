@@ -1,7 +1,190 @@
+import { orchestrateReasoning } from '../agents/orchestrator.mjs'
+import {
+  ensureAnswerBengali,
+  isMostlyEnglish,
+  translateText,
+} from '../agents/translationAgent.mjs'
+import {
+  buildPromptContext,
+  buildReasoningContext,
+  collectEvidenceReferences,
+} from '../rag/contextBuilder.mjs'
 import { hybridRetrieve } from '../rag/retrieval.mjs'
-import { orchestrateQuery } from '../agents/orchestrator.mjs'
 import { appendSessionQuery } from '../rag/sessionStore.mjs'
+import { buildReasoningEnvelope, runReasoningTask } from './runtime.mjs'
 import { buildStructuredAdvice } from './structuredAdvice.mjs'
+import { ruleBasedRootCause } from './ruleBasedRootCause.mjs'
+
+function localeInstruction(locale) {
+  if (locale === 'bn') {
+    return 'All user-facing text must be in Bengali (Bangla script only). Keep numbers, SKU, and product codes accurate.'
+  }
+  return 'All user-facing text must be in clear English.'
+}
+
+function parseJsonBlock(text) {
+  if (!text?.trim()) return null
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[0])
+  } catch {
+    return null
+  }
+}
+
+function normalizeAdviceRecommendations(items = [], fallback = []) {
+  return items
+    .slice(0, 3)
+    .map((item, index) => ({
+      titleBn: item.titleBn ?? fallback[index]?.titleBn ?? '',
+      actionBn: item.actionBn ?? fallback[index]?.actionBn ?? '',
+      reasonBn: item.reasonBn ?? fallback[index]?.reasonBn,
+      priority: Number(item.priority ?? index + 1),
+      kind: item.kind ?? fallback[index]?.kind,
+    }))
+    .filter((item) => item.titleBn && item.actionBn)
+}
+
+function buildChatPrompt({ locale, question, promptContext, orchestration, dataContext }) {
+  return `${localeInstruction(locale)}
+
+You are ShopSense AI, a grounded retail intelligence assistant for Bangladesh SMEs.
+Use only the provided analytics, agent evidence, and retrieved knowledge.
+Do not invent numbers or business facts.
+If evidence is weak, answer cautiously and keep it short.
+
+Question:
+${question}
+
+Reasoning context:
+${promptContext}
+
+Agent evidence:
+${JSON.stringify(
+    orchestration.agentOutputs.map((agent) => ({
+      agent: agent.agent,
+      evidence: agent.evidence,
+      confidence: agent.confidence,
+      next: agent.recommendedNextToolCalls,
+    })),
+    null,
+    2,
+  )}
+
+Structured data preview:
+${JSON.stringify(dataContext ?? {}, null, 2).slice(0, 2500)}
+
+Return valid JSON only:
+{"answerBn":"under 90 words","intent":"${orchestration.intent}","dataUsed":["field1"],"confidence":0.84}`
+}
+
+function buildAdvicePrompt({ locale, promptContext, structuredAdvice, orchestration }) {
+  return `${localeInstruction(locale)}
+
+You are ShopSense AI producing grounded owner advice for a retail shop.
+You must preserve the exact business meaning of the candidate actions.
+Prioritize based on the evidence only. Do not invent metrics.
+
+Reasoning context:
+${promptContext}
+
+Agent evidence:
+${JSON.stringify(
+    orchestration.agentOutputs.map((agent) => ({
+      agent: agent.agent,
+      evidence: agent.evidence,
+      confidence: agent.confidence,
+    })),
+    null,
+    2,
+  )}
+
+Candidate deterministic actions:
+${JSON.stringify(structuredAdvice, null, 2)}
+
+Return valid JSON only:
+{"summaryBn":"short grounded summary","recommendations":[{"titleBn":"title","actionBn":"action","reasonBn":"reason","priority":1,"kind":"reorder"}],"adviceVariant":"${structuredAdvice.adviceVariant}","confidence":0.86}`
+}
+
+function buildRootCausePrompt({ locale, alert, promptContext, orchestration }) {
+  return `${localeInstruction(locale)}
+
+You are ShopSense AI performing grounded root-cause analysis.
+Explain likely causes and actions using only provided evidence.
+Avoid generic business fluff and do not invent data.
+
+Alert:
+${JSON.stringify(alert, null, 2)}
+
+Reasoning context:
+${promptContext}
+
+Agent evidence:
+${JSON.stringify(
+    orchestration.agentOutputs.map((agent) => ({
+      agent: agent.agent,
+      evidence: agent.evidence,
+      confidence: agent.confidence,
+    })),
+    null,
+    2,
+  )}
+
+Return valid JSON only:
+{"summaryBn":"2 grounded sentences","likelyCauses":["cause1","cause2"],"actions":["action1","action2"],"confidence":0.85}`
+}
+
+function withEnvelope(payload, runtime, ragMode) {
+  return {
+    ...payload,
+    ...buildReasoningEnvelope({
+      provider: runtime.provider,
+      reasoningPath: runtime.reasoningPath,
+      evidenceUsed: runtime.evidenceUsed,
+      confidence: runtime.confidence,
+      ragMode,
+      validation: runtime.validation,
+      attempts: runtime.attempts,
+      fallbackDepth: runtime.fallbackDepth,
+      latencyMs: runtime.latencyMs,
+    }),
+  }
+}
+
+async function localizeAdviceResult(locale, summaryBn, recommendations, fallbackRecommendations) {
+  let finalSummary = summaryBn ?? ''
+  let finalRecommendations = recommendations
+
+  if (locale === 'bn') {
+    if (isMostlyEnglish(finalSummary ?? '')) {
+      finalSummary = await ensureAnswerBengali(finalSummary ?? '', 'bn')
+    }
+    finalRecommendations = await Promise.all(
+      finalRecommendations.map(async (item, index) => ({
+        ...item,
+        titleBn: await ensureAnswerBengali(
+          item.titleBn ?? fallbackRecommendations[index]?.titleBn ?? '',
+          'bn',
+        ),
+        actionBn: await ensureAnswerBengali(
+          item.actionBn ?? fallbackRecommendations[index]?.actionBn ?? '',
+          'bn',
+        ),
+        reasonBn: item.reasonBn
+          ? await ensureAnswerBengali(item.reasonBn, 'bn')
+          : fallbackRecommendations[index]?.reasonBn,
+      })),
+    )
+  } else {
+    finalSummary = await translateText(finalSummary ?? '', 'en')
+  }
+
+  return {
+    summaryBn: finalSummary,
+    recommendations: finalRecommendations,
+  }
+}
 
 export async function runInsightPipeline(supabase, body) {
   const {
@@ -12,96 +195,118 @@ export async function runInsightPipeline(supabase, body) {
     locale = 'bn',
     decisionFeed,
     graph,
-    graphContext,
     shopId,
     sessionId,
     daysFilter = 30,
     products,
     sales,
     adviceSeed,
+    dataContext,
   } = body
 
   const query =
     locale === 'bn'
-      ? 'SME দোকান স্টক বিক্রয় ঈদ বাংলাদেশ'
-      : 'SME shop stock sales forecast'
+      ? 'SME দোকান স্টক বিক্রয় পরামর্শ বাংলাদেশ'
+      : 'SME shop stock sales advice grounded'
 
-  const orchestration = await orchestrateQuery(query, {
-    analytics,
-    forecasts,
-    alerts,
-    dataContext: body.dataContext,
-    graph,
-    decisionFeed,
+  const orchestration = await orchestrateReasoning({
+    taskType: 'owner_advice',
+    query,
+    ctx: { analytics, forecasts, alerts, dataContext, graph, decisionFeed },
   })
 
-  const { ragMode, sources } = await hybridRetrieve(supabase, {
+  const { chunks, ragMode, sources } = await hybridRetrieve(supabase, {
     query,
     locale,
     shopId: shopId ?? shopName,
     days: daysFilter,
-    limit: 4,
+    limit: 5,
+    taskType: 'owner_advice',
   })
 
-  const parsed = buildStructuredAdvice({
+  const structuredAdvice = buildStructuredAdvice({
     shopName,
     analytics,
     forecasts,
-    products: products ?? body.dataContext?.products,
-    sales: sales ?? body.dataContext?.sales,
-    graph: graph ?? body.dataContext?.graph,
+    products: products ?? dataContext?.products,
+    sales: sales ?? dataContext?.sales,
+    graph: graph ?? dataContext?.graph,
     locale,
     adviceSeed: adviceSeed ?? Date.now(),
   })
 
-  const response = {
-    summaryBn: parsed.summaryBn,
-    recommendations: parsed.recommendations,
-    ragSources: sources?.length ? sources : [],
-    ragMode: `${ragMode}+structured`,
-    provider: 'structured',
-    intent: orchestration.intent,
-    adviceVariant: parsed.adviceVariant,
-  }
+  const reasoningContext = buildReasoningContext({
+    taskType: 'owner_advice',
+    shopName,
+    analytics,
+    forecasts,
+    alerts,
+    locale,
+    shopId: shopId ?? shopName,
+    sessionId,
+    ragChunks: chunks,
+    daysFilter,
+    graph,
+    decisionFeed,
+    dataContext,
+  })
 
-  const firstAction = parsed.recommendations[0]?.actionBn ?? ''
-  appendSessionQuery(shopId ?? shopName, sessionId, 'owner insight', firstAction)
+  const prompt = buildAdvicePrompt({
+    locale,
+    promptContext: buildPromptContext(reasoningContext),
+    structuredAdvice,
+    orchestration,
+  })
+
+  const evidenceUsed = collectEvidenceReferences(reasoningContext, orchestration)
+  const runtime = await runReasoningTask({
+    taskType: 'owner_advice',
+    prompt,
+    evidence: evidenceUsed,
+    guards: {
+      locale,
+      requiredArrayFields: ['recommendations'],
+      bengaliFields: ['summaryBn'],
+    },
+    fallback: () => ({
+      provider: 'deterministic',
+      parsed: {
+        summaryBn: structuredAdvice.summaryBn,
+        recommendations: structuredAdvice.recommendations,
+        adviceVariant: structuredAdvice.adviceVariant,
+      },
+      confidence: 0.75,
+      evidenceUsed,
+    }),
+    reasoningPath: ['task:owner_advice', `intent:${orchestration.intent}`],
+  })
+
+  const parsed = runtime.parsed ?? parseJsonBlock(runtime.text) ?? {}
+  const recommendations = normalizeAdviceRecommendations(
+    parsed.recommendations,
+    structuredAdvice.recommendations,
+  )
+  const localized = await localizeAdviceResult(
+    locale,
+    parsed.summaryBn ?? structuredAdvice.summaryBn,
+    recommendations.length ? recommendations : structuredAdvice.recommendations,
+    structuredAdvice.recommendations,
+  )
+
+  const response = withEnvelope(
+    {
+      summaryBn: localized.summaryBn,
+      recommendations: localized.recommendations,
+      ragSources: sources?.length ? sources : [],
+      intent: orchestration.intent,
+      adviceVariant: parsed.adviceVariant ?? structuredAdvice.adviceVariant,
+    },
+    runtime,
+    `${ragMode}+agentic`,
+  )
+
+  appendSessionQuery(shopId ?? shopName, sessionId, 'owner insight', localized.recommendations[0]?.actionBn ?? '')
   return response
-}
-
-import { buildContext } from '../rag/contextBuilder.mjs'
-import { generateText } from '../llm/llmRouter.mjs'
-import {
-  ensureAnswerBengali,
-  translateText,
-  isMostlyEnglish,
-} from '../agents/translationAgent.mjs'
-import { ruleBasedRootCause } from './ruleBasedRootCause.mjs'
-
-function parseInsightJson(text) {
-  const match = text.match(/\{[\s\S]*\}/)
-  if (!match) return null
-  try {
-    return JSON.parse(match[0])
-  } catch {
-    return null
-  }
-}
-
-function localeInstruction(locale) {
-  if (locale === 'bn') {
-    return `CRITICAL: Write ALL user-facing text in Bengali (Bangla script only — বাংলা).`
-  }
-  return 'Write all user-facing text in clear English.'
-}
-
-function compactShopMetrics(shopName, analytics) {
-  return `Shop: ${shopName}
-30d revenue: ${analytics?.totalRevenue30d ?? analytics?.totalRevenue ?? 0}
-SKUs: ${analytics?.totalSkus ?? 0}
-Low stock: ${analytics?.lowStockCount ?? 0}
-Overstock: ${analytics?.overstockCount ?? 0}
-Dead stock: ${analytics?.deadStockCount ?? 0}`
 }
 
 export async function runNlQueryPipeline(supabase, body) {
@@ -115,28 +320,36 @@ export async function runNlQueryPipeline(supabase, body) {
     analytics,
     forecasts,
     alerts,
+    graph,
+    decisionFeed,
     shopName = 'Shop',
     daysFilter = 30,
   } = body
 
-  const orchestration = await orchestrateQuery(question, {
-    analytics: analytics ?? dataContext?.analytics,
-    forecasts,
-    alerts,
-    dataContext,
+  const orchestration = await orchestrateReasoning({
+    taskType: 'chat_answer',
+    query: question,
+    ctx: {
+      analytics: analytics ?? dataContext?.analytics,
+      forecasts,
+      alerts,
+      dataContext,
+      graph,
+      decisionFeed,
+    },
   })
 
-  const ragQuery = question
-
   const { chunks, ragMode, sources } = await hybridRetrieve(supabase, {
-    query: ragQuery,
+    query: question,
     locale,
     shopId,
     days: daysFilter,
-    limit: 3,
+    limit: 4,
+    taskType: 'chat_answer',
   })
 
-  const context = buildContext({
+  const reasoningContext = buildReasoningContext({
+    taskType: 'chat_answer',
     shopName,
     analytics: analytics ?? dataContext?.analytics,
     forecasts,
@@ -146,106 +359,141 @@ export async function runNlQueryPipeline(supabase, body) {
     sessionId,
     ragChunks: chunks,
     daysFilter,
+    graph,
+    decisionFeed,
+    dataContext,
   })
 
-  const agentBlock = orchestration.agentOutputs
-    .map((a) => `### ${a.agent}\n${a.summary}`)
-    .join('\n\n')
+  const evidenceUsed = collectEvidenceReferences(reasoningContext, orchestration)
+  const prompt = buildChatPrompt({
+    locale,
+    question,
+    promptContext: buildPromptContext(reasoningContext),
+    orchestration,
+    dataContext,
+  })
 
-  const dataSnippet = dataContext
-    ? JSON.stringify(dataContext).slice(0, 2500)
-    : 'No structured data passed.'
+  const runtime = await runReasoningTask({
+    taskType: 'chat_answer',
+    prompt,
+    evidence: evidenceUsed,
+    guards: {
+      locale,
+      requiredStringFields: ['answerBn', 'intent'],
+      requiredArrayFields: ['dataUsed'],
+      bengaliFields: ['answerBn'],
+    },
+    fallback: () => ({
+      provider: 'deterministic',
+      parsed: {
+        answerBn:
+          localAnswer ||
+          (locale === 'bn' ? 'এই প্রশ্নের জন্য ডেটা দেখে নিশ্চিত উত্তর পাওয়া যায়নি।' : 'No grounded answer from data.'),
+        intent: orchestration.intent,
+        dataUsed: ['analytics'],
+        confidence: 0.7,
+      },
+      confidence: 0.7,
+      evidenceUsed,
+    }),
+    reasoningPath: ['task:chat_answer', `intent:${orchestration.intent}`],
+  })
 
-  const prompt = `Answer the shop owner. ${localeInstruction(locale)}
+  const parsed = runtime.parsed ?? parseJsonBlock(runtime.text) ?? {}
+  let answerBn =
+    parsed.answerBn ||
+    localAnswer ||
+    (locale === 'bn' ? 'এই প্রশ্নের জন্য ডেটা দেখে নিশ্চিত উত্তর পাওয়া যায়নি।' : 'No grounded answer from data.')
 
-Question: ${question}
+  answerBn = await ensureAnswerBengali(answerBn, locale)
+  if (locale === 'en') answerBn = await translateText(answerBn, 'en')
 
-${context}
+  appendSessionQuery(shopId, sessionId, question, answerBn)
 
-Data: ${dataSnippet}
-
-Agents: ${agentBlock}
-
-JSON: {"answerBn":"under 80 words","intent":"${orchestration.intent}","dataUsed":["field1"]}`
-
-  const enrichMs = Number(process.env.OLLAMA_NL_ENRICH_MS ?? 6_000)
-  let parsed = null
-  let provider = 'local'
-
-  try {
-    const gen = await Promise.race([
-      generateText(prompt, { maxTokens: 200, json: true, timeoutMs: enrichMs }),
-      new Promise((resolve) =>
-        setTimeout(() => resolve({ text: '', provider: 'timeout' }), enrichMs),
-      ),
-    ])
-    parsed = parseInsightJson(gen.text)
-    if (parsed?.answerBn) {
-      provider =
-        gen.provider === 'ollama' || gen.provider === 'huggingface'
-          ? gen.provider
-          : 'local'
-    }
-  } catch {
-    /* use local */
-  }
-
-  if (!parsed?.answerBn) {
-    parsed = {
-      answerBn:
-        localAnswer ||
-        (locale === 'bn' ? 'এই প্রশ্নের জন্য ডেটা দেখে উত্তর পাওয়া যায়নি।' : 'No answer from data.'),
-      intent: orchestration.intent,
-      dataUsed: ['analytics'],
-    }
-    provider = localAnswer ? 'local' : provider
-  }
-
-  parsed.answerBn = await ensureAnswerBengali(parsed.answerBn, locale)
-  if (locale === 'en') {
-    parsed.answerBn = await translateText(parsed.answerBn, 'en')
-  }
-
-  appendSessionQuery(shopId, sessionId, question, parsed.answerBn)
-
-  return {
-    answerBn: parsed.answerBn,
-    intent: parsed.intent ?? orchestration.intent,
-    dataUsed: parsed.dataUsed ?? [],
-    ragSources: sources,
-    ragMode: `${ragMode}+agentic`,
-    provider,
-  }
+  return withEnvelope(
+    {
+      answerBn,
+      intent: parsed.intent ?? orchestration.intent,
+      dataUsed: parsed.dataUsed ?? ['analytics'],
+      ragSources: sources,
+    },
+    runtime,
+    `${ragMode}+agentic`,
+  )
 }
 
 export async function runRootCausePipeline(supabase, body) {
-  const { alert, analytics, locale = 'bn', shopId, sessionId } = body
-  const question = `Root cause: ${alert?.title ?? ''} — ${alert?.message ?? ''}`
+  const { alert, analytics, locale = 'bn', shopId, sessionId, graph, decisionFeed, dataContext } = body
+  const question = `Root cause: ${alert?.title ?? ''} - ${alert?.message ?? ''}`
 
-  const { chunks } = await hybridRetrieve(supabase, {
+  const orchestration = await orchestrateReasoning({
+    taskType: 'root_cause',
+    query: question,
+    ctx: { analytics, alerts: alert ? [alert] : [], graph, decisionFeed, dataContext },
+  })
+
+  const { chunks, ragMode, sources } = await hybridRetrieve(supabase, {
     query: question,
     locale,
     shopId,
     days: 30,
-    limit: 3,
+    limit: 4,
+    taskType: 'root_cause',
   })
 
-  const prompt = `Root cause analysis. ${localeInstruction(locale)}
+  const reasoningContext = buildReasoningContext({
+    taskType: 'root_cause',
+    shopName: 'Shop',
+    analytics,
+    forecasts: body.forecasts ?? [],
+    alerts: alert ? [alert] : [],
+    locale,
+    shopId,
+    sessionId,
+    ragChunks: chunks,
+    daysFilter: 30,
+    graph,
+    decisionFeed,
+    dataContext,
+  })
 
-Alert: ${alert?.title ?? ''} — ${alert?.message ?? ''}
-${compactShopMetrics('Shop', analytics)}
+  const evidenceUsed = collectEvidenceReferences(reasoningContext, orchestration)
+  const prompt = buildRootCausePrompt({
+    locale,
+    alert,
+    promptContext: buildPromptContext(reasoningContext),
+    orchestration,
+  })
 
-JSON: {"summaryBn":"2 sentences","likelyCauses":["cause1","cause2"],"actions":["action1"]}`
+  const runtime = await runReasoningTask({
+    taskType: 'root_cause',
+    prompt,
+    evidence: evidenceUsed,
+    guards: {
+      locale,
+      requiredStringFields: ['summaryBn'],
+      requiredArrayFields: ['likelyCauses', 'actions'],
+      bengaliFields: ['summaryBn'],
+    },
+    fallback: () => {
+      const parsed = ruleBasedRootCause({
+        productQuery: alert?.title ?? '',
+        context: alert?.message ?? '',
+        locale,
+      })
+      return {
+        provider: 'deterministic',
+        parsed,
+        confidence: 0.73,
+        evidenceUsed,
+      }
+    },
+    reasoningPath: ['task:root_cause', `intent:${orchestration.intent}`],
+  })
 
-  const enrichMs = Number(process.env.OLLAMA_NL_ENRICH_MS ?? 6_000)
-  const gen = await Promise.race([
-    generateText(prompt, { maxTokens: 280, json: true, timeoutMs: enrichMs }),
-    new Promise((resolve) =>
-      setTimeout(() => resolve({ text: '', provider: 'timeout' }), enrichMs),
-    ),
-  ])
   const parsed =
-    parseInsightJson(gen.text) ??
+    runtime.parsed ??
+    parseJsonBlock(runtime.text) ??
     ruleBasedRootCause({
       productQuery: alert?.title ?? '',
       context: alert?.message ?? '',
@@ -256,7 +504,22 @@ JSON: {"summaryBn":"2 sentences","likelyCauses":["cause1","cause2"],"actions":["
     parsed.summaryBn = await ensureAnswerBengali(parsed.summaryBn, 'bn')
   } else if (locale === 'en') {
     parsed.summaryBn = await translateText(parsed.summaryBn, 'en')
+    parsed.likelyCauses = await Promise.all(
+      (parsed.likelyCauses ?? []).map(async (cause) => await translateText(cause, 'en')),
+    )
+    parsed.actions = await Promise.all(
+      (parsed.actions ?? []).map(async (action) => await translateText(action, 'en')),
+    )
   }
 
-  return { ...parsed, provider: gen.provider }
+  return withEnvelope(
+    {
+      summaryBn: parsed.summaryBn,
+      likelyCauses: parsed.likelyCauses ?? [],
+      actions: parsed.actions ?? [],
+      ragSources: sources ?? [],
+    },
+    runtime,
+    `${ragMode}+agentic`,
+  )
 }

@@ -1,55 +1,39 @@
-# Credentials — already in `.env` (gitignored)
+# Credentials and Environment Notes
 
-Configured for:
-- **OpenRouter** (LLM + embeddings) — no paid Google Gemini key required
-- **Supabase** (new `sb_publishable_` / `sb_secret_` keys supported)
+This file exists as a setup checklist only. Do not store live secrets in Git-tracked markdown.
 
-## You must still do in Supabase Dashboard
+## Required Secret Categories
 
-1. **SQL Editor** — run in order:
-   - `supabase/migrations/001_initial.sql`
-   - `supabase/migrations/002_vector_search.sql`
-   - If you already ran old 001 with `vector(768)`, also run `003_embedding_1536.sql`
+- Supabase URL and service role key
+- Supabase publishable frontend key
+- OpenRouter primary and fallback keys
+- Hugging Face primary and fallback keys
+- OCR.Space primary and fallback keys
 
-2. **Extensions** → enable **vector**
+## Local Setup
 
-## Ollama (local LLM) — installed via winget
+Store secrets in:
 
-```powershell
-ollama list
-ollama pull llama3          # full model ~4.7GB (optional)
-# Currently using llama3.2:1b in .env (lighter, already pulled)
+- `.env`
 
-npm run setup:ollama      # re-pull / verify API
-```
+Never commit:
 
-Ollama runs as a Windows app on `http://127.0.0.1:11434`.
+- `.env`
+- `.env.local`
 
-## Local reasoning (Ollama — no paid API)
+## Current Secret Handling Rules
 
-Insight and root-cause use a **local reasoner** model (default `deepseek-r1:1.5b`):
+- server-only secrets must never use `VITE_*`
+- provider secrets should be read only through server runtime env vars
+- Vercel and local should use the same env names for parity
 
-```powershell
-ollama pull deepseek-r1:1.5b
-# optional larger: ollama pull deepseek-r1:7b
-```
+## If You Shared Keys Publicly
 
-Set in `.env`: `OLLAMA_REASONER_MODEL=deepseek-r1:1.5b`  
-Fast tasks / translation use `OLLAMA_MODEL=llama3.2:1b`.
+Rotate them immediately before production deployment.
 
-Cloud OpenRouter is only a fallback if Ollama is down.
+## Recommended Final Checks Before Deploy
 
-## Run app
-
-```powershell
-cd sme-ai-dashboard
-npm run dev:all
-```
-
-3. Open http://localhost:5173
-4. Click **Vector RAG সিড** (needs OpenRouter credits for embeddings)
-5. Upload `public/sme_data.csv`
-
-## Security
-
-If you shared API keys in chat, **rotate** them in OpenRouter + Supabase dashboards.
+- confirm local `.env` works
+- copy the same env names to Vercel
+- verify `npm run build`
+- verify the main product flows manually

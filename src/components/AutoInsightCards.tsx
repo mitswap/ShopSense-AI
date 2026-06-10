@@ -1,5 +1,5 @@
 import type { DataInsight } from '../types'
-import { useI18n } from '../lib/i18n'
+import { useI18n } from '../lib/useI18n'
 
 interface AutoInsightCardsProps {
   insights: DataInsight[]

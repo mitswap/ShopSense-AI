@@ -1,103 +1,108 @@
-# সম্পূর্ণ প্রোটোটাইপ — সব কিছু চালু করুন (কিছু বাদ নয়)
+# Full Setup Guide
 
-এই প্রোটোটাইপ **হ্যাকথন জাজকে দেখানোর জন্য** — প্রতিটি স্তর কাজ করবে।
+This guide is for running the full current ShopSense AI product locally before deployment.
 
-| # | স্তর | দেখাবেন |
-|---|------|---------|
-| 1 | React + Vite + Tailwind | ড্যাশবোর্ড UI |
-| 2 | PapaParse + Zod | CSV আপলোড |
-| 3 | Analytics (JS) | KPI কার্ড, চার্ট |
-| 4 | Forecast (MA + ঈদ/পূজা/বর্ষা) | পূর্বাভাস গ্রাফ |
-| 5 | Supabase Postgres | ক্লাউড ডেটা, স্টক এডিট |
-| 6 | pgvector | ভেক্টর ডাটাবেস |
-| 7 | RAG | জ্ঞান ভান্ডার + সূত্র |
-| 8 | Gemini | এমবেডিং + বাংলা AI পরামর্শ |
-| 9 | বাংলা UI | লোকালাইজেশন |
-| 10 | Vercel deploy | লাইভ URL |
+## What You Get
 
----
+- frontend dashboard
+- local Express API
+- additive CSV import flow
+- supplier memo OCR preview flow
+- Bangla and English UI
+- Hugging Face and OpenRouter cloud reasoning
+- optional Supabase persistence
+- current `/docs` page
 
-## ধাপ ১ — লোকাল টুল
+## 1. Install dependencies
 
-```powershell
-cd "G:\BuildFest Hackathon\sme-ai-dashboard"
+```bash
 npm install
-copy .env.example .env
 ```
 
----
+## 2. Configure environment
 
-## ধাপ ২ — অ্যাকাউন্ট (সব লাগবে)
+Copy `.env.example` to `.env` and fill values.
 
-| সেবা | লিংক | কী নেবেন |
-|------|------|---------|
-| **Gemini** | https://aistudio.google.com | `GEMINI_API_KEY` |
-| **Supabase** | https://supabase.com | URL, anon, **service_role** |
-| **GitHub** | https://github.com | রিপো |
-| **Vercel** | https://vercel.com | ডিপ্লয় |
-
----
-
-## ধাপ ৩ — `.env` (সম্পূর্ণ)
+Minimum practical setup:
 
 ```env
 VITE_USE_SUPABASE=true
-VITE_SUPABASE_URL=https://YOUR.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...anon...
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
 
-GEMINI_API_KEY=AIza...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
 
-SUPABASE_URL=https://YOUR.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJ...service_role...
+OPENROUTER_API_KEY=...
+OPENROUTER_API_KEY_FALLBACK=...
+
+HF_TOKEN=...
+HF_TOKEN_FALLBACK=...
+
+OCR_SPACE_API_KEY=...
+OCR_SPACE_API_KEY_FALLBACK=...
 ```
 
-`service_role` শুধু সার্ভারে — কখনো `VITE_` দেবেন না।
+## 3. Optional database migrations
 
----
+If you want Supabase persistence and vector support, run the project migrations in Supabase SQL Editor.
 
-## ধাপ ৪ — Supabase SQL (দুটো ফাইল)
-
-SQL Editor এ চালান:
+Typical order:
 
 1. `supabase/migrations/001_initial.sql`
 2. `supabase/migrations/002_vector_search.sql`
+3. any later migration files needed by your branch history
 
-Extensions → **vector** চালু আছে কিনা দেখুন।
+Also ensure the `vector` extension is enabled if your migration path requires it.
 
----
+## 4. Run the app
 
-## ধাপ ৫ — চালান + সিড
-
-```powershell
+```bash
 npm run dev:all
 ```
 
-ব্রাউজার: http://localhost:5173
+Or run separately:
 
-1. **টেক স্ট্যাক স্ট্যাটাস** — সব সবুজ হওয়া পর্যন্ত `.env` ঠিক করুন  
-2. **Vector RAG সিড করুন** বাটন — Gemini → pgvector  
-3. **CSV** আপলোড (`public/sample-inventory.csv`)  
-4. **স্টক এডিট** — ডাইনামিক আপডেট  
-5. **AI পরামর্শ নিন** — বাংলা + RAG সূত্র  
+```bash
+npm run dev
+npm run dev:api
+```
 
-API স্ট্যাটাস: http://localhost:3001/api/status
+Frontend:
 
----
+- `http://localhost:5173`
 
-## ধাপ ৬ — ভিডিওতে বলুন (৩ মিনিট)
+API:
 
-1. সমস্যা: দোকানদার স্টক/ভবিষ্যৎ বুঝতে পারে না  
-2. CSV → Supabase → অ্যানালিটিক্স  
-3. পূর্বাভাস + ঈদ সিজন  
-4. Vector RAG + Gemini — «পরবর্তী কী করবেন»  
-5. KPI + স্কেল (multi-shop, Vercel)
+- `http://localhost:3001`
 
----
+## 5. Verify key product flows
 
-## ধাপ ৭ — Vercel env
+Recommended manual checks:
 
-Production এ একই ভেরিয়েবল + `SUPABASE_SERVICE_ROLE_KEY` + `GEMINI_API_KEY`.
+1. Upload `public/sample-inventory.csv`
+2. Upload another CSV and confirm data adds instead of replacing
+3. Open the supplier memo card and test a memo preview
+4. Confirm inventory shows unit cost correctly
+5. Ask Shop Analyzer a stock or festival question
+6. Test Individual product analysis
+7. Load weather advice for a city
+8. Open `/docs` and verify live documentation loads
 
----
+## 6. Optional checks
 
-**ডেমো মোড বন্ধ:** `VITE_USE_SUPABASE=true` — পুরো প্রোটোটাইপের জন্য।
+```bash
+npm run build
+npm run test:smoke
+```
+
+## 7. Pre-deployment reminder
+
+Before Vercel deployment, mirror the same provider env vars there:
+
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_API_KEY_FALLBACK`
+- `HF_TOKEN`
+- `HF_TOKEN_FALLBACK`
+- `OCR_SPACE_API_KEY`
+- `OCR_SPACE_API_KEY_FALLBACK`

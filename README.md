@@ -1,69 +1,122 @@
-# SME AI Dashboard
+# ShopSense AI
 
-BuildFest 2026 - E-Commerce track - Bangladesh apparel retail
+ShopSense AI is a retail operations copilot for SME clothing shops. It helps owners upload existing business data, import supplier memos, track inventory health, understand festival demand, ask natural-language business questions, and receive grounded AI advice in English or Bangla.
 
-AI-powered analytics for small shop owners:
-CSV upload -> dashboard -> forecasting -> RAG knowledge -> Bengali/English AI insights.
+## Current Product Scope
 
-## Stack
+- Additive CSV import with flexible schema detection
+- Supplier memo OCR with preview and confirm-before-write flow
+- Live inventory management with manual add-product support
+- KPI dashboard for sales, profit, growth, best seller, low stock, and dead stock
+- Festival-aware analytics with inferred Eid and Puja windows
+- Shop Analyzer chat interface for grounded product and sales questions
+- Individual product analysis for sales-change reasoning
+- Today-specific weather advice for the shop city
+- Bangla-ready UI and localized product/category labels
+- Shared local and Vercel-compatible code paths
+
+## Tech Stack
 
 | Layer | Tech |
-|---|---|
-| Frontend | React 19, Vite, Tailwind CSS 4, Recharts, PapaParse, Zod |
-| API | Node/Express (local dev + Vercel serverless routing) |
-| Data | Supabase (Postgres + optional pgvector) or localStorage demo mode |
-| Forecast | Moving average + trend + festival multipliers |
-| RAG | In-app knowledge + Supabase `knowledge_chunks` |
-| LLM | Local Ollama OR Hugging Face cloud fallback (`HF_TOKEN`) + optional OpenRouter |
-| Deploy | Vercel (frontend + API), optional Render |
+| --- | --- |
+| Frontend | React 19, Vite 8, TypeScript, Tailwind CSS 4, Recharts, TanStack Query |
+| API | Express 5, serverless-compatible `api/index.mjs`, Vercel rewrites |
+| Data | Supabase Postgres + pgvector, optional localStorage demo mode |
+| CSV / Validation | PapaParse, Zod, canonical schema detection |
+| AI | Hugging Face Inference Providers, OpenRouter chat + embeddings, optional local Ollama |
+| OCR | OCR.Space |
 
 ## Quick Start
 
-### 1) Install
+### 1. Install
 
 ```bash
-cd sme-ai-dashboard
 npm install
 ```
 
-### 2) Environment
+### 2. Configure environment
 
-Copy `.env.example` to `.env` and fill values.
+Copy `.env.example` to `.env` and fill in the required values.
 
 Important variables:
 
-- `VITE_API_BASE_URL` (only if frontend points to a separate backend)
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-- `HF_TOKEN` (for cloud LLM fallback when local Ollama is unavailable)
-- `OPENROUTER_API_KEY` (optional embeddings/cloud fallback)
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_API_KEY_FALLBACK`
+- `HF_TOKEN`
+- `HF_TOKEN_FALLBACK`
+- `OCR_SPACE_API_KEY`
+- `OCR_SPACE_API_KEY_FALLBACK`
 
-### 3) Run locally
+If your frontend and backend are separated, also set:
+
+- `VITE_API_BASE_URL`
+
+### 3. Run locally
 
 ```bash
-npm run dev         # frontend only
-npm run dev:all     # frontend + API
+npm run dev
+npm run dev:api
 ```
 
-Open: `http://localhost:5173`
+Or run both together:
 
-### 4) Deploy
-
-- Frontend/API on Vercel: keep `/api/*` routes as configured in `vercel.json`
-- Optional Render backend docs: [`DEPLOY-RENDER.md`](./DEPLOY-RENDER.md)
-- Hugging Face backend migration guide: [`DEPLOY-HUGGINGFACE.md`](./DEPLOY-HUGGINGFACE.md)
-
-## CSV format
-
-```csv
-sku,product_name,product_name_bn,category,stock_qty,unit_cost,sale_date,qty_sold,unit_price
+```bash
+npm run dev:all
 ```
 
-Alternate names are supported: `name`, `quantity`, `date`, `quantity_sold`.
+Frontend:
+
+- `http://localhost:5173`
+
+API:
+
+- `http://localhost:3001`
+
+### 4. Optional smoke checks
+
+```bash
+npm run test:smoke
+```
+
+## Deployment Notes
+
+### Vercel
+
+- `vercel.json` already rewrites `/api/*` to the serverless entry
+- mirror the same provider env vars from `.env` into Vercel project settings
+- use the fallback key variables in Vercel too for parity
+
+### Render
+
+- Render is recommended only if you want a dedicated long-running Express API or optional Ollama runtime
+- see [DEPLOY-RENDER.md](./DEPLOY-RENDER.md)
+
+### Hugging Face / OpenRouter
+
+- Hugging Face and OpenRouter are both supported in the current runtime
+- the code now supports primary and fallback keys for both providers
+- see [DEPLOY-HUGGINGFACE.md](./DEPLOY-HUGGINGFACE.md)
+
+## Sample Data
+
+- `public/sample-inventory.csv`
+- `public/sme_data.csv`
+- `public/Demo_image.jpg`
 
 ## Security
 
-- Never put private keys in `VITE_*` variables.
-- Rotate any key you accidentally shared publicly.
+- Never commit `.env`
+- Never expose secret keys through `VITE_*`
+- If a key was ever shared publicly, rotate it before production use
+
+## Documentation
+
+- public docs: `/docs`
+- docs admin: `/docs/admin`
 
 ## License
 

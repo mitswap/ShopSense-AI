@@ -42,6 +42,7 @@ export function parseInventoryCsv(
       complete: (results) => {
         const errors: string[] = []
         const productMap = new Map<string, Product>()
+        const firstStockBySku = new Map<string, string>()
         const sales: SaleRecord[] = []
         let rowIndex = 0
 
@@ -61,6 +62,14 @@ export function parseInventoryCsv(
           const saleDate = row.sale_date ?? row.date
           const qtySold = row.qty_sold ?? row.quantity_sold ?? 0
           const unitPrice = row.unit_price ?? unitCost
+          const observedDate = saleDate ?? new Date().toISOString().slice(0, 10)
+
+          if (observedDate) {
+            const earliest = firstStockBySku.get(sku)
+            if (!earliest || observedDate < earliest) {
+              firstStockBySku.set(sku, observedDate)
+            }
+          }
 
           if (!productMap.has(sku)) {
             productMap.set(sku, {
@@ -72,10 +81,12 @@ export function parseInventoryCsv(
               stockQty: stock,
               unitCost,
               unitPrice: unitPrice || unitCost,
+              firstStockDate: firstStockBySku.get(sku) ?? observedDate,
             })
           } else {
             const p = productMap.get(sku)!
             if (stock > 0) p.stockQty = stock
+            p.firstStockDate = firstStockBySku.get(sku) ?? p.firstStockDate
           }
 
           if (saleDate && qtySold > 0) {
@@ -103,7 +114,10 @@ export function parseInventoryCsv(
           data: {
             shopId,
             shopName,
-            products: Array.from(productMap.values()),
+            products: Array.from(productMap.values()).map((product) => ({
+              ...product,
+              firstStockDate: firstStockBySku.get(product.sku) ?? product.firstStockDate,
+            })),
             sales,
             updatedAt: new Date().toISOString(),
           },

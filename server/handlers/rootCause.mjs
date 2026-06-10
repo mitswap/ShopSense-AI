@@ -24,12 +24,25 @@ export async function handleRootCause(req, res) {
       locale,
       sessionId,
       shopId,
+      dataContext: body.dataContext,
+      graph: body.graph,
+      decisionFeed: body.decisionFeed,
+      forecasts: body.forecasts ?? [],
     })
     return res.status(200).json({
       answerBn: result.summaryBn,
       causes: result.likelyCauses ?? [],
       actions: result.actions ?? [],
-      method: result.provider ?? 'rules',
+      method: result.method ?? result.provider ?? 'rules',
+      provider: result.provider ?? 'rules',
+      reasoningPath: result.reasoningPath ?? [],
+      evidenceUsed: result.evidenceUsed ?? [],
+      confidence: result.confidence ?? 0,
+      ragMode: result.ragMode,
+      validation: result.validation ?? { ok: true, errors: [] },
+      attempts: result.attempts ?? [],
+      fallbackDepth: result.fallbackDepth ?? 0,
+      latencyMs: result.latencyMs ?? 0,
     })
   } catch {
     /* fallback */

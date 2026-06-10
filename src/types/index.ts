@@ -51,6 +51,7 @@ export interface Product {
   stockQty: number
   unitCost: number
   unitPrice: number
+  firstStockDate?: string
 }
 
 export interface SaleRecord {
@@ -90,8 +91,38 @@ export interface AnalyticsSummary {
   bestSeller: { name: string; revenue: number } | null
   topMovers: { sku: string; name: string; qty: number }[]
   slowMovers: { sku: string; name: string; qty: number }[]
+  deadStockItems: { sku: string; name: string; qty: number }[]
   categoryBreakdown: { category: string; stockValue: number; revenue: number; count: number }[]
   festivalLift: { festival: string; revenue: number; upliftPct: number }[]
+  festivalProductLeaders: {
+    festival: string
+    sku: string
+    name: string
+    qty: number
+    revenue: number
+    currentStock: number
+    avgFestivalWindowQty: number
+    normalDailyQty: number
+    upliftPct: number
+    suggestedFestivalRestock: number
+  }[]
+  festivalSummary: {
+    festival: string
+    revenue: number
+    qty: number
+    activeDays: number
+    topProducts: {
+      sku: string
+      name: string
+      qty: number
+      revenue: number
+      currentStock: number
+      avgFestivalWindowQty: number
+      normalDailyQty: number
+      upliftPct: number
+      suggestedFestivalRestock: number
+    }[]
+  }[]
   locationPerformance: { location: string; revenue: number }[]
   weekdayPattern: { day: string; avgRevenue: number }[]
 }
@@ -163,11 +194,90 @@ export interface BusinessGraph {
   bundleSuggestions: { products: string[]; reasonBn: string }[]
 }
 
+export interface InventoryUpdateInput {
+  stockQty: number
+  unitPrice: number
+}
+
 export interface KnowledgeChunk {
   id: string
   content: string
   contentBn: string
   category: string
+}
+
+export interface ProviderRoute {
+  provider: 'huggingface' | 'openrouter' | 'ollama' | 'deterministic' | 'none' | string
+  model?: string | null
+  ok?: boolean
+  error?: string | null
+}
+
+export interface ValidationResult {
+  ok: boolean
+  errors: string[]
+}
+
+export interface AgentEvidence {
+  agent: string
+  evidence: Record<string, unknown>
+  confidence?: number
+}
+
+export interface ReasoningTask {
+  taskType: string
+  intent?: string
+  reasoningPath?: string[]
+  evidenceUsed?: string[]
+}
+
+export interface GroundedAnswer {
+  provider?: string
+  method?: string
+  reasoningPath?: string[]
+  evidenceUsed?: string[]
+  confidence?: number
+  ragMode?: string
+  validation?: ValidationResult
+  attempts?: ProviderRoute[]
+  fallbackDepth?: number
+  latencyMs?: number
+}
+
+export interface MemoValidationWarning {
+  rowIndex?: number
+  field?: 'date' | 'product_name' | 'quantity' | 'unit_cost' | 'supplier' | 'memo_number' | 'general'
+  level: 'error' | 'warning'
+  message: string
+}
+
+export interface MemoLineItem {
+  id: string
+  date: string
+  product_name: string
+  category: string
+  quantity: number
+  unit_cost: number
+  stock: number
+  supplier?: string
+  confidence?: number
+  matchedSku?: string | null
+  isNewProduct?: boolean
+  warnings?: MemoValidationWarning[]
+}
+
+export interface MemoHeaderInfo {
+  supplier?: string
+  memoNumber?: string
+  memoDate?: string
+}
+
+export interface MemoExtractionResponse extends GroundedAnswer {
+  header: MemoHeaderInfo
+  rows: MemoLineItem[]
+  warnings: MemoValidationWarning[]
+  ocrEngine?: string
+  rawTextPreview?: string
 }
 
 export interface AiInsightRequest {
@@ -189,10 +299,46 @@ export interface AiInsightResponse {
   recommendations: { titleBn: string; actionBn: string; priority: number; reasonBn?: string }[]
   ragSources: string[]
   ragMode?: string
+  provider?: string
+  method?: string
+  reasoningPath?: string[]
+  evidenceUsed?: string[]
+  confidence?: number
+  validation?: ValidationResult
+  attempts?: ProviderRoute[]
+  fallbackDepth?: number
+  latencyMs?: number
 }
 
-export interface NlQueryResult {
+export interface NlQueryResult extends GroundedAnswer {
   answerBn: string
   intent: string
   dataUsed: string[]
+}
+
+export interface WeatherCardResponse extends GroundedAnswer {
+  location: {
+    name: string
+    region: string
+    country: string
+    localtime: string
+  }
+  current: {
+    tempC: number
+    feelsLikeC: number
+    humidity: number
+    windKph: number
+    precipMm: number
+    uv: number
+    isDay: number
+    conditionText: string
+    conditionIcon: string
+  }
+  advice: {
+    summary: string
+    dailyLife: string[]
+    frontDeskWinners: string[]
+    likelyLosers: string[]
+    shopActions: string[]
+  }
 }

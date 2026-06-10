@@ -1,4 +1,4 @@
-import type { Locale } from './i18n'
+import type { Locale } from './i18n-types'
 import { graphBundleReason, labelCategory, labelFestival, labelProduct } from './localeCopy'
 import type { BusinessGraph, GraphEdge, GraphNode, ShopData } from '../types'
 

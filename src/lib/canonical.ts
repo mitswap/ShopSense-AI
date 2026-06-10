@@ -1,4 +1,5 @@
 import type { CanonicalField, CanonicalRow, ColumnMapping } from '../types'
+import { resolveFestivalValue } from './festivalCalendar'
 
 export const CANONICAL_FIELDS: CanonicalField[] = [
   'date',
@@ -148,7 +149,7 @@ export function rowToCanonical(
     unit_cost,
     weather: mapped.weather,
     season: mapped.season,
-    festival: mapped.festival,
+    festival: resolveFestivalValue(mapped.festival, date),
     location: mapped.location ?? mapped.branch,
   }
 }

@@ -1,33 +1,54 @@
 /**
- * Sales agent — trends and revenue insights.
+ * Sales agent — grounded revenue and demand evidence.
  */
 export function runSalesAgent({ analytics, forecasts, dataContext }) {
-  const lines = []
-  lines.push(`Total revenue: ${analytics?.totalRevenue ?? 'n/a'}`)
-  lines.push(`Total orders: ${analytics?.totalOrders ?? 'n/a'}`)
-  lines.push(`Top category: ${analytics?.topCategory ?? 'n/a'}`)
+  const recentRevenue = analytics?.revenueByDay?.slice?.(-7) ?? []
+  const last7dRevenue = recentRevenue.reduce((sum, day) => sum + (day.revenue ?? day.value ?? 0), 0)
 
-  if (analytics?.revenueByDay?.length) {
-    const recent = analytics.revenueByDay.slice(-7)
-    const sum = recent.reduce((s, d) => s + (d.revenue ?? d.value ?? 0), 0)
-    lines.push(`Last 7 days revenue sum: ${sum}`)
-  }
+  const risingForecasts = (forecasts ?? [])
+    .filter((f) => f.risk === 'high' || f.trend === 'up' || (f.avgDailySales ?? 0) > 1)
+    .slice(0, 5)
+    .map((f) => ({
+      sku: f.sku,
+      name: f.nameBn ?? f.name ?? f.productName ?? f.sku,
+      avgDailySales: f.avgDailySales ?? null,
+      suggestedReorder: f.suggestedReorder ?? null,
+      risk: f.risk ?? 'unknown',
+    }))
 
-  if (forecasts?.length) {
-    const rising = forecasts.filter((f) => f.trend === 'up').slice(0, 4)
-    for (const f of rising) {
-      lines.push(`Rising demand: ${f.productName ?? f.sku}`)
-    }
-  }
+  const recentSalesRows = (dataContext?.sales ?? []).slice(-30).length
 
-  if (dataContext?.sales?.length) {
-    const last30 = dataContext.sales.slice(-30)
-    lines.push(`Recent sale rows: ${last30.length}`)
-  }
+  const summaryLines = [
+    `Total revenue: ${analytics?.totalRevenue ?? 'n/a'}`,
+    `30 day revenue: ${analytics?.totalRevenue30d ?? analytics?.totalRevenue ?? 'n/a'}`,
+    `Best seller: ${analytics?.bestSeller?.name ?? 'n/a'}`,
+    `Last 7 days revenue sum: ${last7dRevenue}`,
+    ...risingForecasts.map((f) => `Demand signal ${f.sku}: risk ${f.risk}`),
+    `Recent sales rows inspected: ${recentSalesRows}`,
+  ]
 
   return {
     agent: 'sales',
-    summary: lines.join('\n'),
+    intentSupport: ['sales', 'revenue', 'trend', 'forecast', 'festival'],
+    inputsNeeded: ['analytics.totalRevenue', 'analytics.bestSeller', 'forecasts', 'sales'],
+    evidence: {
+      totalRevenue: analytics?.totalRevenue ?? 0,
+      totalRevenue30d: analytics?.totalRevenue30d ?? analytics?.totalRevenue ?? 0,
+      bestSeller: analytics?.bestSeller ?? null,
+      monthlyGrowthPct: analytics?.monthlyGrowthPct ?? null,
+      topMovers: analytics?.topMovers ?? [],
+      last7dRevenue,
+      risingForecasts,
+      recentSalesRows,
+    },
+    summary: summaryLines.join('\n'),
+    confidence: analytics?.totalRevenue ? 0.9 : 0.7,
+    completeness: {
+      hasAnalytics: Boolean(analytics),
+      hasForecasts: Boolean((forecasts ?? []).length),
+      hasSales: Boolean((dataContext?.sales ?? []).length),
+    },
+    recommendedNextToolCalls: ['forecast_explainer', 'dashboard_summary'],
     tools: ['trend_analysis', 'revenue_insights'],
   }
 }

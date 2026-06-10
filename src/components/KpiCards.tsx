@@ -1,5 +1,5 @@
 import { Package, AlertTriangle, TrendingUp, Wallet, Skull, Percent } from 'lucide-react'
-import { useI18n } from '../lib/i18n'
+import { useI18n } from '../lib/useI18n'
 import { labelProduct } from '../lib/localeCopy'
 import type { AnalyticsSummary } from '../types'
 

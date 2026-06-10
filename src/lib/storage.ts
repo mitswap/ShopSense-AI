@@ -4,6 +4,10 @@ function getStorageKey(userId: string) {
   return `sme-ai-dashboard-shop-${userId}`
 }
 
+export function localShopStorageKey(userId: string): string {
+  return getStorageKey(userId)
+}
+
 export function loadLocalShop(userId: string): ShopData | null {
   try {
     const raw = localStorage.getItem(getStorageKey(userId))

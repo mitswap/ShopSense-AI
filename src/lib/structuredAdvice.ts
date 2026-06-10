@@ -25,9 +25,13 @@ export interface AdviceRecommendation {
   kind?: string
 }
 
-function fmtMoney(n: number, locale: 'bn' | 'en') {
-  const v = Math.round(n)
-  return locale === 'bn' ? v.toLocaleString('bn-BD') : v.toLocaleString()
+function money(n: number, locale: 'bn' | 'en') {
+  const value = Math.round(n).toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-US')
+  return locale === 'bn' ? `৳${value}` : `Tk ${value}`
+}
+
+function units(n: number, locale: 'bn' | 'en') {
+  return Math.round(n).toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-US')
 }
 
 function hashSeed(seed: number, salt: number) {
@@ -76,43 +80,49 @@ function pickDiscountTarget(products: Product[], sales: SaleRecord[]) {
   return best
 }
 
+function productName(product: Product, locale: 'bn' | 'en') {
+  return locale === 'bn' ? product.nameBn || product.name : product.name
+}
+
+function forecastName(forecast: ProductForecast, locale: 'bn' | 'en') {
+  return locale === 'bn' ? forecast.nameBn || forecast.name : forecast.name
+}
+
 function buildDiscountAdvice(
   target: { product: Product; qty30: number; daysCover: number } | null,
   locale: 'bn' | 'en',
 ): AdviceRecommendation | null {
   if (!target) return null
-  const { product: p, qty30, daysCover } = target
-  const pct = discountPercent(daysCover, qty30, p.stockQty)
+  const { product, qty30, daysCover } = target
+  const pct = discountPercent(daysCover, qty30, product.stockQty)
   if (pct == null) return null
 
-  const tied = Math.round(p.stockQty * p.unitCost)
-  const name = locale === 'bn' ? p.nameBn || p.name : p.name
+  const tied = product.stockQty * product.unitCost
+  const name = productName(product, locale)
   const daysLabel =
     daysCover >= 999
       ? locale === 'bn'
-        ? 'বিক্রি নেই'
+        ? 'সাম্প্রতিক বিক্রি নেই'
         : 'no recent sales'
       : locale === 'bn'
-        ? `${Math.round(daysCover)} দিনের স্টক কভার`
-        : `${Math.round(daysCover)} days stock cover`
+        ? `${units(daysCover, locale)} দিনের স্টক কভার`
+        : `${units(daysCover, locale)} days stock cover`
 
-  if (locale === 'bn') {
-    return {
-      titleBn: `ছাড়: ${name} — ${pct}%`,
-      actionBn: `${name}-এ ঠিক ${pct}% ছাড় দিন। বর্তমান স্টক ${p.stockQty} পিস, গত ৩০ দিনে বিক্রি ${qty30} পিস (${daysLabel})। আটকানো মূলধন প্রায় ৳${fmtMoney(tied, 'bn')}।`,
-      reasonBn: `ধীর বিক্রির হারে ${pct}% ছাড়ে আনুমানিক ৳${fmtMoney(tied * (pct / 100) * 0.35, 'bn')} নগদ ফিরে আসতে পারে (৩৫% বিক্রি ধরে)।`,
-      priority: 1,
-      kind: 'discount',
-    }
-  }
-
-  return {
-    titleBn: `Discount: ${name} — ${pct}%`,
-    actionBn: `Apply exactly ${pct}% off ${name}. Stock ${p.stockQty} units, ${qty30} sold in 30 days (${daysLabel}). Capital tied up ≈ ৳${fmtMoney(tied, 'en')}.`,
-    reasonBn: `At current sell-through, ${pct}% off could recover ~৳${fmtMoney(tied * (pct / 100) * 0.35, 'en')} if ~35% of stock clears.`,
-    priority: 1,
-    kind: 'discount',
-  }
+  return locale === 'bn'
+    ? {
+        titleBn: `ছাড়: ${name} - ${pct}%`,
+        actionBn: `${name}-এ ঠিক ${pct}% ছাড় দিন। বর্তমান স্টক ${units(product.stockQty, locale)} পিস, গত ৩০ দিনে বিক্রি ${units(qty30, locale)} পিস (${daysLabel})। আটকে থাকা মূলধন প্রায় ${money(tied, locale)}।`,
+        reasonBn: `বিক্রির গতি ধীর। ${pct}% ছাড় দিলে স্টকের প্রায় ৩৫% ক্লিয়ার হলে আনুমানিক ${money(tied * (pct / 100) * 0.35, locale)} নগদ ফিরে আসতে পারে।`,
+        priority: 1,
+        kind: 'discount',
+      }
+    : {
+        titleBn: `Discount: ${name} - ${pct}%`,
+        actionBn: `Apply exactly ${pct}% off ${name}. Stock ${units(product.stockQty, locale)} units, ${units(qty30, locale)} sold in 30 days (${daysLabel}). Capital tied up is about ${money(tied, locale)}.`,
+        reasonBn: `Sell-through is slow. If about 35% of stock clears, this discount can release roughly ${money(tied * (pct / 100) * 0.35, locale)} in cash movement.`,
+        priority: 1,
+        kind: 'discount',
+      }
 }
 
 function buildReorderCandidates(forecasts: ProductForecast[]) {
@@ -127,67 +137,89 @@ function buildReorderCandidates(forecasts: ProductForecast[]) {
     })
 }
 
-function buildReorderAdvice(
-  forecast: ProductForecast,
-  locale: 'bn' | 'en',
-): AdviceRecommendation {
-  const name = locale === 'bn' ? forecast.nameBn || forecast.name : forecast.name
-  const units = Math.ceil(forecast.suggestedReorder)
-  const days = forecast.daysUntilStockout ?? '?'
+function buildReorderAdvice(forecast: ProductForecast, locale: 'bn' | 'en'): AdviceRecommendation {
+  const name = forecastName(forecast, locale)
+  const reorderUnits = Math.ceil(forecast.suggestedReorder)
   const daily = forecast.avgDailySales.toFixed(1)
-  const f7 = Math.round(forecast.forecast7d)
+  const days = forecast.daysUntilStockout ?? 0
+  const demand7 = Math.round(forecast.forecast7d)
 
-  if (locale === 'bn') {
-    return {
-      titleBn: `রিঅর্ডার: ${name}`,
-      actionBn: `${name} (${forecast.sku}) — আজই ${units} পিস অর্ডার করুন। স্টক ${forecast.currentStock} পিস, গড় দৈনিক বিক্রি ${daily} পিস, ${days} দিনে শেষ হতে পারে; আগামী ৭ দিনের চাহিদা ~${f7} পিস।`,
-      reasonBn: `ফোরকাস্ট অনুযায়ী ৭ দিনের চাহিদা ${f7} পিসের বিরুদ্ধে স্টক কম — স্টক আউট এড়াতে ${units} পিস রিঅর্ডার।`,
-      priority: 2,
-      kind: 'reorder',
+  return locale === 'bn'
+    ? {
+        titleBn: `রি-অর্ডার: ${name}`,
+        actionBn: `${name} (${forecast.sku}) আজই ${units(reorderUnits, locale)} পিস অর্ডার করুন। স্টক ${units(forecast.currentStock, locale)} পিস, গড় দৈনিক বিক্রি ${daily} পিস, প্রায় ${units(Number(days), locale)} দিনে শেষ হতে পারে; ৭ দিনের চাহিদা প্রায় ${units(demand7, locale)} পিস।`,
+        reasonBn: `পূর্বাভাসে ৭ দিনের চাহিদা ${units(demand7, locale)} পিস, যা বর্তমান স্টকের তুলনায় বেশি ঝুঁকিপূর্ণ। ${units(reorderUnits, locale)} পিস রি-অর্ডার করলে স্টকআউট ও হারানো বিক্রি কমবে।`,
+        priority: 2,
+        kind: 'reorder',
+      }
+    : {
+        titleBn: `Reorder: ${name}`,
+        actionBn: `Order exactly ${units(reorderUnits, locale)} units of ${name} (${forecast.sku}) today. Stock ${units(forecast.currentStock, locale)}, about ${daily} units/day, stockout in about ${units(Number(days), locale)} days; 7-day demand is about ${units(demand7, locale)} units.`,
+        reasonBn: `Forecasted 7-day demand is ${units(demand7, locale)} units, so this reorder reduces stockout risk and protects near-term sales.`,
+        priority: 2,
+        kind: 'reorder',
+      }
+}
+
+function buildFallbackReorder(products: Product[], sales: SaleRecord[], locale: 'bn' | 'en') {
+  const q30 = qty30BySku(sales)
+  let pick: { product: Product; sold: number; days: number; reorder: number } | null = null
+
+  for (const product of products) {
+    const sold = q30.get(product.sku) ?? 0
+    const avg = sold / 30
+    if (avg < 0.2) continue
+    const days = product.stockQty / avg
+    if (days < 14 && (!pick || days < pick.days)) {
+      pick = { product, sold, days, reorder: Math.ceil(avg * 19 - product.stockQty) }
     }
   }
 
-  return {
-    titleBn: `Reorder: ${name}`,
-    actionBn: `Order exactly ${units} units of ${name} (${forecast.sku}) today. Stock ${forecast.currentStock}, ~${daily} units/day, stockout in ~${days} days; 7-day demand ~${f7} units.`,
-    reasonBn: `Forecast 7-day demand is ${f7} units — reorder ${units} to avoid lost sales.`,
-    priority: 2,
-    kind: 'reorder',
-  }
+  if (!pick || pick.reorder <= 0) return null
+  const name = productName(pick.product, locale)
+  return locale === 'bn'
+    ? {
+        titleBn: `রি-অর্ডার: ${name}`,
+        actionBn: `${name} - ${units(pick.reorder, locale)} পিস অর্ডার করুন। স্টক ${units(pick.product.stockQty, locale)}, ৩০ দিনে বিক্রি ${units(pick.sold, locale)} পিস।`,
+        reasonBn: `বর্তমান বিক্রির গতিতে স্টক প্রায় ${units(pick.days, locale)} দিনের মধ্যে শেষ হতে পারে। এই অর্ডার প্রায় ১৪ দিনের চাহিদা কভার করবে।`,
+        priority: 2,
+        kind: 'reorder',
+      }
+    : {
+        titleBn: `Reorder: ${name}`,
+        actionBn: `Order ${units(pick.reorder, locale)} units of ${name}. Stock ${units(pick.product.stockQty, locale)}, ${units(pick.sold, locale)} sold in 30 days.`,
+        reasonBn: `At current sell-through, stock may finish in about ${units(pick.days, locale)} days. This order covers roughly 14 days of demand.`,
+        priority: 2,
+        kind: 'reorder',
+      }
 }
 
-function buildSecondaryPool(
-  input: StructuredAdviceInput,
-  locale: 'bn' | 'en',
-): AdviceRecommendation[] {
-  const { analytics, forecasts, products = [], sales = [], graph } = input
+function buildSecondaryPool(input: StructuredAdviceInput, locale: 'bn' | 'en'): AdviceRecommendation[] {
+  const { analytics, products = [], sales = [], forecasts, graph } = input
   const pool: AdviceRecommendation[] = []
   const q30 = qty30BySku(sales)
 
   if (analytics.bestSeller) {
-    const bs = analytics.bestSeller
-    const match = products.find(
-      (p) => p.name === bs.name || p.nameBn === bs.name || p.sku === bs.name,
-    )
+    const best = analytics.bestSeller
+    const match = products.find((p) => p.name === best.name || p.nameBn === best.name || p.sku === best.name)
     const stock = match?.stockQty ?? 0
-    const sold = match ? (q30.get(match.sku) ?? 0) : 0
+    const sold = match ? q30.get(match.sku) ?? 0 : 0
     const targetStock = Math.max(stock, Math.ceil(sold * 1.25) + 5)
     const add = Math.max(0, targetStock - stock)
-
     if (add > 0) {
       pool.push(
         locale === 'bn'
           ? {
-              titleBn: `বেস্টসেলার স্টক: ${bs.name}`,
-              actionBn: `${bs.name} — গত ৩০ দিনে বিক্রয় ৳${fmtMoney(bs.revenue, 'bn')}। স্টক ${stock} পিস থেকে ${add} পিস বাড়ান (লক্ষ্য ${targetStock} পিস)।`,
-              reasonBn: `শীর্ষ আয়ের পণ্য; স্টক বাড়ালে ৳${fmtMoney(bs.revenue * 0.12, 'bn')} পর্যন্ত অতিরিক্ত বিক্রয় সম্ভব।`,
+              titleBn: `বেস্টসেলার স্টক: ${best.name}`,
+              actionBn: `${best.name} গত ৩০ দিনে ${money(best.revenue, locale)} বিক্রি করেছে। স্টক ${units(stock, locale)} থেকে ${units(targetStock, locale)} পিসে নিন (+${units(add, locale)} পিস)।`,
+              reasonBn: `এটি শীর্ষ আয়ের পণ্য। অতিরিক্ত ${units(add, locale)} পিস রাখলে আনুমানিক ${money(best.revenue * 0.12, locale)} বাড়তি বিক্রির সুযোগ তৈরি হতে পারে।`,
               priority: 3,
               kind: 'bestseller',
             }
           : {
-              titleBn: `Stock up bestseller: ${bs.name}`,
-              actionBn: `${bs.name} earned ৳${fmtMoney(bs.revenue, 'en')} in 30 days. Raise stock from ${stock} to ${targetStock} units (+${add}).`,
-              reasonBn: `Top revenue SKU — +${add} units could capture ~৳${fmtMoney(bs.revenue * 0.12, 'en')} more sales.`,
+              titleBn: `Stock up bestseller: ${best.name}`,
+              actionBn: `${best.name} earned ${money(best.revenue, locale)} in 30 days. Raise stock from ${units(stock, locale)} to ${units(targetStock, locale)} units (+${units(add, locale)}).`,
+              reasonBn: `This is the top revenue item. Extra stock can capture roughly ${money(best.revenue * 0.12, locale)} more sales if demand continues.`,
               priority: 3,
               kind: 'bestseller',
             },
@@ -195,23 +227,23 @@ function buildSecondaryPool(
     }
   }
 
-  const fest = analytics.festivalLift[0]
-  if (fest && fest.upliftPct > 5) {
-    const uplift = Math.round(fest.upliftPct)
-    const extraRev = Math.round(fest.revenue * 0.15)
+  const festival = analytics.festivalLift[0]
+  if (festival && festival.upliftPct > 5) {
+    const uplift = Math.round(festival.upliftPct)
+    const extraRevenue = festival.revenue * 0.15
     pool.push(
       locale === 'bn'
         ? {
-            titleBn: `উৎসব প্রস্তুতি: ${fest.festival}`,
-            actionBn: `${fest.festival}-এ বিক্রয় ৳${fmtMoney(fest.revenue, 'bn')} (+${uplift}%)। স্টক ১৫% বাড়ান — লক্ষ্য +৳${fmtMoney(extraRev, 'bn')}।`,
-            reasonBn: `উৎসব ডেটায় চাহিদা ${uplift}% বেশি।`,
+            titleBn: `উৎসব প্রস্তুতি: ${festival.festival}`,
+            actionBn: `${festival.festival}-এ বিক্রি ${money(festival.revenue, locale)} (+${units(uplift, locale)}%)। সংশ্লিষ্ট স্টক ১৫% বাড়ান, লক্ষ্য বাড়তি ${money(extraRevenue, locale)} বিক্রি।`,
+            reasonBn: `আপনার ডেটায় উৎসবের সময় চাহিদা ${units(uplift, locale)}% বেশি। আগে স্টক বাড়ালে স্টকআউট কমে।`,
             priority: 3,
             kind: 'festival',
           }
         : {
-            titleBn: `Festival prep: ${fest.festival}`,
-            actionBn: `${fest.festival} sales ৳${fmtMoney(fest.revenue, 'en')} (+${uplift}%). Increase stock 15% — target +৳${fmtMoney(extraRev, 'en')}.`,
-            reasonBn: `Festival uplift ${uplift}% in your data.`,
+            titleBn: `Festival prep: ${festival.festival}`,
+            actionBn: `${festival.festival} sales reached ${money(festival.revenue, locale)} (+${units(uplift, locale)}%). Increase related stock 15%; target extra sales of ${money(extraRevenue, locale)}.`,
+            reasonBn: `Your data shows ${units(uplift, locale)}% festival uplift, so early stocking reduces stockout risk.`,
             priority: 3,
             kind: 'festival',
           },
@@ -220,51 +252,47 @@ function buildSecondaryPool(
 
   if (analytics.monthlyGrowthPct != null && Math.abs(analytics.monthlyGrowthPct) >= 3) {
     const pct = Number(analytics.monthlyGrowthPct.toFixed(1))
-    const rev = Math.round(analytics.totalRevenue30d)
+    const budget = Math.max(500, analytics.totalRevenue30d * 0.02)
     pool.push(
       locale === 'bn'
         ? {
-            titleBn: 'বিক্রয় প্রবণতা',
-            actionBn: `৩০ দিনে আয় ৳${fmtMoney(rev, 'bn')} (${pct > 0 ? '+' : ''}${pct}%)। প্রচার বাজেট ৳${fmtMoney(Math.max(500, rev * 0.02), 'bn')}।`,
-            reasonBn: 'ডেটা-ভিত্তিক ২% মার্কেটিং বাজেট।',
+            titleBn: 'বিক্রয় প্রবণতা',
+            actionBn: `৩০ দিনের আয় ${money(analytics.totalRevenue30d, locale)} (${pct > 0 ? '+' : ''}${pct}%)। সেরা ক্যাটাগরিতে ${money(budget, locale)} প্রচার বাজেট রাখুন।`,
+            reasonBn: `পরিবর্তনটি স্পষ্ট। আয়ের ২% প্রচারে দিলে ঝুঁকি কম রেখে ট্রেন্ড পরীক্ষা করা যায়।`,
             priority: 3,
             kind: 'growth',
           }
         : {
             titleBn: 'Sales trend',
-            actionBn: `30-day revenue ৳${fmtMoney(rev, 'en')} (${pct > 0 ? '+' : ''}${pct}%). Promo budget ৳${fmtMoney(Math.max(500, rev * 0.02), 'en')}.`,
-            reasonBn: '2% of revenue as measured promo step.',
+            actionBn: `30-day revenue is ${money(analytics.totalRevenue30d, locale)} (${pct > 0 ? '+' : ''}${pct}%). Allocate ${money(budget, locale)} promo budget to the top category.`,
+            reasonBn: `The movement is measurable; using 2% of revenue keeps the test controlled while responding to the trend.`,
             priority: 3,
             kind: 'growth',
           },
     )
   }
 
-  const overForecast = forecasts
+  const overstock = forecasts
     .filter((f) => f.currentStock > 40 && f.avgDailySales < 0.5)
     .sort((a, b) => b.currentStock - a.currentStock)[0]
 
-  if (overForecast) {
-    const name =
-      locale === 'bn' ? overForecast.nameBn || overForecast.name : overForecast.name
-    const reduce = Math.min(
-      overForecast.currentStock - 10,
-      Math.ceil(overForecast.currentStock * 0.2),
-    )
-    if (reduce > 0) {
+  if (overstock) {
+    const clearUnits = Math.min(overstock.currentStock - 10, Math.ceil(overstock.currentStock * 0.2))
+    if (clearUnits > 0) {
+      const name = forecastName(overstock, locale)
       pool.push(
         locale === 'bn'
           ? {
               titleBn: `অতিরিক্ত স্টক: ${name}`,
-              actionBn: `${name}: স্টক ${overForecast.currentStock} পিস, বিক্রি ~${overForecast.avgDailySales.toFixed(1)}/দিন। ${reduce} পিস সরান।`,
-              reasonBn: 'কম চাহিদায় স্টক কমান।',
+              actionBn: `${name}: স্টক ${units(overstock.currentStock, locale)} পিস, বিক্রি প্রায় ${overstock.avgDailySales.toFixed(1)}/দিন। ${units(clearUnits, locale)} পিস সরান বা বান্ডেল করুন।`,
+              reasonBn: `চাহিদা কম। স্টকের ২০% সরালে মূলধন আটকে থাকা কমবে এবং তাকের জায়গা খালি হবে।`,
               priority: 3,
               kind: 'overstock',
             }
           : {
               titleBn: `Reduce overstock: ${name}`,
-              actionBn: `${name}: ${overForecast.currentStock} units, ~${overForecast.avgDailySales.toFixed(1)}/day. Clear ${reduce} units.`,
-              reasonBn: 'Low velocity — free working capital.',
+              actionBn: `${name}: ${units(overstock.currentStock, locale)} units on hand, about ${overstock.avgDailySales.toFixed(1)}/day. Move or bundle ${units(clearUnits, locale)} units.`,
+              reasonBn: `Demand is low. Clearing about 20% reduces tied capital and frees shelf space.`,
               priority: 3,
               kind: 'overstock',
             },
@@ -279,37 +307,37 @@ function buildSecondaryPool(
       locale === 'bn'
         ? {
             titleBn: 'বান্ডেল অফার',
-            actionBn: `${names} — বান্ডেলে ৮% ছাড়।`,
-            reasonBn: bundle.reasonBn,
+            actionBn: `${names} একসাথে ৮% বান্ডেল ছাড়ে বিক্রি করুন।`,
+            reasonBn: bundle.reasonBn || 'পণ্য সংযোগ বিশ্লেষণে এগুলো একসাথে বিক্রির সম্ভাবনা দেখা যাচ্ছে।',
             priority: 3,
             kind: 'bundle',
           }
         : {
             titleBn: 'Bundle offer',
-            actionBn: `${names} — 8% bundle discount.`,
-            reasonBn: bundle.reasonBn,
+            actionBn: `Sell ${names} together with an 8% bundle discount.`,
+            reasonBn: bundle.reasonBn || 'Product graph analysis shows these items are likely to sell together.',
             priority: 3,
             kind: 'bundle',
           },
     )
   }
 
-  const topCat = [...analytics.categoryBreakdown].sort((a, b) => b.revenue - a.revenue)[0]
-  if (topCat && topCat.revenue > 0) {
-    const share = Math.round((topCat.revenue / Math.max(analytics.totalRevenue30d, 1)) * 100)
+  const topCategory = [...analytics.categoryBreakdown].sort((a, b) => b.revenue - a.revenue)[0]
+  if (topCategory && topCategory.revenue > 0) {
+    const share = Math.round((topCategory.revenue / Math.max(analytics.totalRevenue30d, 1)) * 100)
     pool.push(
       locale === 'bn'
         ? {
-            titleBn: `ক্যাটাগরি: ${topCat.category}`,
-            actionBn: `${topCat.category}: ৳${fmtMoney(topCat.revenue, 'bn')} (${share}% আয়)। স্টক ১০% বাড়ান।`,
-            reasonBn: `${share}% আয় এই ক্যাটাগরি থেকে।`,
+            titleBn: `ক্যাটাগরি ফোকাস: ${topCategory.category}`,
+            actionBn: `${topCategory.category} ৩০ দিনে ${money(topCategory.revenue, locale)} (${units(share, locale)}% আয়)। এই ক্যাটাগরিতে ২টি SKU যোগ করুন বা স্টক ১০% বাড়ান।`,
+            reasonBn: `আয়ের ${units(share, locale)}% এই ক্যাটাগরি থেকে আসছে, তাই এখানে ফোকাস করলে ROI বেশি হওয়ার সম্ভাবনা।`,
             priority: 3,
             kind: 'category',
           }
         : {
-            titleBn: `Category: ${topCat.category}`,
-            actionBn: `${topCat.category}: ৳${fmtMoney(topCat.revenue, 'en')} (${share}% revenue). +10% stock.`,
-            reasonBn: `${share}% of revenue from this category.`,
+            titleBn: `Category focus: ${topCategory.category}`,
+            actionBn: `${topCategory.category} made ${money(topCategory.revenue, locale)} in 30 days (${units(share, locale)}% of revenue). Add 2 SKUs or raise stock 10%.`,
+            reasonBn: `${units(share, locale)}% of revenue comes from this category, making it the highest-return focus area.`,
             priority: 3,
             kind: 'category',
           },
@@ -317,44 +345,6 @@ function buildSecondaryPool(
   }
 
   return pool
-}
-
-function buildFallbackReorder(
-  products: Product[],
-  sales: SaleRecord[],
-  locale: 'bn' | 'en',
-): AdviceRecommendation | null {
-  const q30 = qty30BySku(sales)
-  let pick: { p: Product; sold: number; days: number; reorder: number } | null = null
-
-  for (const p of products) {
-    const sold = q30.get(p.sku) ?? 0
-    const avg = sold / 30
-    if (avg < 0.2) continue
-    const days = p.stockQty / avg
-    if (days < 14 && (!pick || days < pick.days)) {
-      pick = { p, sold, days, reorder: Math.ceil(avg * 14 + avg * 5 - p.stockQty) }
-    }
-  }
-  if (!pick || pick.reorder <= 0) return null
-  const name = locale === 'bn' ? pick.p.nameBn || pick.p.name : pick.p.name
-  const units = pick.reorder
-
-  return locale === 'bn'
-    ? {
-        titleBn: `রিঅর্ডার: ${name}`,
-        actionBn: `${name} — ${units} পিস অর্ডার করুন। স্টক ${pick.p.stockQty}, ৩০ দিনে ${pick.sold} পিস বিক্রি।`,
-        reasonBn: `${units} পিস ~১৪ দিনের চাহিদা মেটায়।`,
-        priority: 2,
-        kind: 'reorder',
-      }
-    : {
-        titleBn: `Reorder: ${name}`,
-        actionBn: `Order ${units} units. Stock ${pick.p.stockQty}, ${pick.sold} sold in 30d.`,
-        reasonBn: `${units} units covers ~14 days sell-through.`,
-        priority: 2,
-        kind: 'reorder',
-      }
 }
 
 export function buildStructuredAdvice(input: StructuredAdviceInput) {
@@ -373,28 +363,26 @@ export function buildStructuredAdvice(input: StructuredAdviceInput) {
     reorderList.length > 0
       ? buildReorderAdvice(reorderList[reorderIdx], locale)
       : buildFallbackReorder(products, sales, locale)
-
   if (reorder) recommendations.push(reorder)
 
   const pool = buildSecondaryPool(input, locale)
   const usedKinds = new Set(recommendations.map((r) => r.kind))
   const available = pool.filter((p) => !usedKinds.has(p.kind))
 
-  if (available.length === 0 && (input.analytics.totalRevenue30d ?? 0) > 0) {
-    const rev = Math.round(input.analytics.totalRevenue30d)
+  if (available.length === 0 && input.analytics.totalRevenue30d > 0) {
     available.push(
       locale === 'bn'
         ? {
             titleBn: 'নগদ প্রবাহ',
-            actionBn: `৩০ দিনে বিক্রয় ৳${fmtMoney(rev, 'bn')} (গড় ৳${fmtMoney(rev / 30, 'bn')}/দিন)। শীর্ষ ৩ SKU সাপ্তাহিক চেক করুন।`,
-            reasonBn: 'স্থিতিশীল বিক্রয় — নিয়মিত অডিট।',
+            actionBn: `৩০ দিনে মোট বিক্রি ${money(input.analytics.totalRevenue30d, locale)}। দৈনিক গড় ${money(input.analytics.totalRevenue30d / 30, locale)}; শীর্ষ ৩ SKU সপ্তাহে একবার চেক করুন।`,
+            reasonBn: 'বিক্রি স্থিতিশীল হলে নিয়মিত স্টক অডিটই সবচেয়ে কার্যকর পরবর্তী পদক্ষেপ।',
             priority: 3,
             kind: 'cashflow',
           }
         : {
             titleBn: 'Cash flow',
-            actionBn: `30-day sales ৳${fmtMoney(rev, 'en')} (avg ৳${fmtMoney(rev / 30, 'en')}/day). Review top 3 SKUs weekly.`,
-            reasonBn: 'Stable sales — structured review.',
+            actionBn: `30-day sales are ${money(input.analytics.totalRevenue30d, locale)}. Daily average is ${money(input.analytics.totalRevenue30d / 30, locale)}; review top 3 SKUs weekly.`,
+            reasonBn: 'When sales are stable, a structured stock review is the most effective next step.',
             priority: 3,
             kind: 'cashflow',
           },
@@ -402,12 +390,9 @@ export function buildStructuredAdvice(input: StructuredAdviceInput) {
   }
 
   const secondaryIdx = hashSeed(adviceSeed, 2) % Math.max(available.length, 1)
-  if (available.length > 0) {
-    recommendations.push({ ...available[secondaryIdx], priority: 3 })
-  }
+  if (available.length > 0) recommendations.push({ ...available[secondaryIdx], priority: 3 })
 
   const finalRecs = recommendations.slice(0, 3).map((r, i) => ({ ...r, priority: i + 1 }))
-
   return {
     summaryBn: '',
     recommendations: finalRecs,

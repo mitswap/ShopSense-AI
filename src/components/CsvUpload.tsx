@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { Upload, Download } from 'lucide-react'
-import { useI18n } from '../lib/i18n'
+import { Upload, Download, Database } from 'lucide-react'
+import { useI18n } from '../lib/useI18n'
 import { detectSchemaFromFile, ingestCsvFile } from '../lib/ingestPipeline'
 import { SchemaMappingPanel } from './SchemaMappingPanel'
 import type { ColumnMapping, ShopData, SchemaDetectionResult } from '../types'
@@ -49,12 +49,12 @@ export function CsvUpload({ onLoaded, hasExistingData = false }: CsvUploadProps)
 
   if (hasExistingData) {
     return (
-      <div className="space-y-2">
+      <div className="flex h-full flex-col justify-end gap-2">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="text-brand-600 hover:underline text-xs disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center rounded-2xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
         >
           {busy ? ui.loading : ui.uploadAnotherCsv}
         </button>
@@ -87,28 +87,40 @@ export function CsvUpload({ onLoaded, hasExistingData = false }: CsvUploadProps)
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm text-left">
-        <h2 className="text-base font-semibold text-slate-900">{ui.uploadCsv}</h2>
-        <p className="text-xs text-slate-500 mt-1">{ui.uploadHint}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={busy}
-            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            <Upload className="w-4 h-4" />
-            {busy ? ui.loading : hasExistingData ? ui.uploadAnotherCsv : ui.uploadCsv}
-          </button>
-          <a
-            href="/sme_data.csv"
-            download
-            className="inline-flex items-center gap-2 border border-slate-300 text-sm px-3 py-2 rounded-lg"
-          >
-            <Download className="w-4 h-4" />
-            {ui.downloadSample}
-          </a>
+      <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm text-left">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+            <Database className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">{ui.csvImportTitle}</h2>
+            <p className="mt-1 text-xs text-slate-500">{ui.csvImportHint}</p>
+          </div>
         </div>
+
+        <div className="mt-4 rounded-3xl border border-emerald-100 bg-emerald-50/70 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <Upload className="h-4 w-4" />
+              {busy ? ui.loading : hasExistingData ? ui.uploadAnotherCsv : ui.uploadCsv}
+            </button>
+            <a
+              href="/sme_data.csv"
+              download
+              className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
+            >
+              <Download className="h-4 w-4" />
+              {ui.downloadSample}
+            </a>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">{ui.csvFileSupport}</p>
+        </div>
+
         <input
           ref={inputRef}
           type="file"
@@ -120,7 +132,7 @@ export function CsvUpload({ onLoaded, hasExistingData = false }: CsvUploadProps)
           }}
         />
         {errors.length > 0 && (
-          <ul className="mt-2 text-xs text-red-600 list-disc list-inside">
+          <ul className="mt-3 list-disc list-inside text-xs text-red-600">
             {errors.map((e, i) => (
               <li key={i}>{e}</li>
             ))}

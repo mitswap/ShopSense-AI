@@ -1,33 +1,62 @@
 /**
- * Insight agent — explanations and root-cause framing.
+ * Insight agent — grounded graph, alert, and action evidence.
  */
 export function runInsightAgent({ alerts, graph, decisionFeed }) {
-  const lines = []
+  const criticalAlerts = (alerts ?? [])
+    .filter((a) => a.severity === 'high' || a.severity === 'critical')
+    .slice(0, 5)
+    .map((a) => ({
+      id: a.id,
+      type: a.type,
+      severity: a.severity,
+      message: a.messageBn,
+      sku: a.sku,
+    }))
 
-  if (decisionFeed?.length) {
-    lines.push('Decision feed highlights:')
-    for (const d of decisionFeed.slice(0, 5)) {
-      lines.push(`- ${d.title ?? d.headline}: ${d.detail ?? d.reason ?? ''}`)
-    }
-  }
+  const graphNodes = (graph?.nodes ?? [])
+    .filter((node) => node.type === 'product' || node.type === 'category' || node.type === 'festival')
+    .slice(0, 8)
+    .map((node) => ({
+      id: node.id,
+      type: node.type,
+      label: node.label,
+      weight: node.weight ?? null,
+    }))
 
-  if (graph?.nodes?.length) {
-    const top = graph.nodes
-      .filter((n) => n.type === 'product' || n.type === 'category')
-      .slice(0, 6)
-    for (const n of top) {
-      lines.push(`Graph node ${n.label}: weight ${n.weight ?? 'n/a'}`)
-    }
-  }
+  const bundleSuggestions = (graph?.bundleSuggestions ?? []).slice(0, 3)
+  const feedHighlights = (decisionFeed ?? []).slice(0, 5).map((item) => ({
+    id: item.id,
+    title: item.titleBn ?? item.title ?? item.headline ?? '',
+    detail: item.bodyBn ?? item.detail ?? item.reason ?? '',
+    severity: item.severity ?? 'medium',
+  }))
 
-  const critical = (alerts ?? []).filter((a) => a.severity === 'high' || a.severity === 'critical')
-  for (const a of critical.slice(0, 5)) {
-    lines.push(`Critical: ${a.title} — ${a.message}`)
-  }
+  const summaryLines = [
+    ...(feedHighlights.length ? ['Decision feed highlights:'] : []),
+    ...feedHighlights.map((d) => `- ${d.title}: ${d.detail}`),
+    ...graphNodes.map((n) => `Graph node ${n.label}: ${n.type}`),
+    ...bundleSuggestions.map((b) => `Bundle signal: ${b.products.join(' + ')}`),
+    ...criticalAlerts.map((a) => `Critical alert ${a.type}: ${a.message}`),
+  ]
 
   return {
     agent: 'insight',
-    summary: lines.join('\n') || 'No graph or critical alerts.',
+    intentSupport: ['explain', 'why', 'root', 'graph', 'bundle', 'advice'],
+    inputsNeeded: ['alerts', 'graph', 'decisionFeed'],
+    evidence: {
+      criticalAlerts,
+      graphNodes,
+      bundleSuggestions,
+      feedHighlights,
+    },
+    summary: summaryLines.join('\n') || 'No graph or critical alerts.',
+    confidence: criticalAlerts.length || graphNodes.length || bundleSuggestions.length ? 0.88 : 0.68,
+    completeness: {
+      hasAlerts: Boolean((alerts ?? []).length),
+      hasGraph: Boolean((graph?.nodes ?? []).length),
+      hasDecisionFeed: Boolean((decisionFeed ?? []).length),
+    },
+    recommendedNextToolCalls: ['graph_explainer', 'root_cause', 'owner_advice'],
     tools: ['explanation', 'root_cause_analysis'],
   }
 }

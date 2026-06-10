@@ -1,58 +1,66 @@
-# Deploy Backend with Hugging Face (No Local Ollama Required)
+# Hugging Face and Cloud AI Deployment Notes
 
-This project now supports a cloud fallback for all Ollama calls:
-- Local Ollama (if running)
-- Hugging Face Inference Providers (when `HF_TOKEN` is set)
+ShopSense AI currently supports Hugging Face and OpenRouter as the main cloud AI providers.
 
-## 1) Local test
+## Current Cloud Runtime Model
 
-```powershell
-cd "G:\BuildFest Hackathon\sme-ai-dashboard"
-$env:HF_TOKEN="hf_xxx"
-$env:HF_CHAT_MODEL="Qwen/Qwen2.5-7B-Instruct:fastest"
-$env:HF_REASONER_MODEL="Qwen/Qwen2.5-7B-Instruct:fastest"
-npm run dev:api
-```
+- Hugging Face: cloud reasoning and chat completion
+- OpenRouter: cloud reasoning fallback and embeddings
+- OCR.Space: supplier memo OCR
+- optional local Ollama compatibility for non-serverless environments
 
-Then check:
+## Required Environment Variables
 
-```powershell
-curl http://localhost:3001/api/intelligence/health
-```
-
-Expected fields include:
-- `"ollama": true` (compatibility flag)
-- `"huggingface": true`
-- `"reasoningMode": "huggingface-cloud"` (when local Ollama is not running)
-
-## 2) Vercel backend (recommended with your current frontend)
-
-Use Vercel env vars for the API project:
+Hugging Face:
 
 - `HF_TOKEN`
-- `HF_CHAT_MODEL` (optional)
-- `HF_REASONER_MODEL` (optional)
-- keep existing: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY` (if you use embeddings/fallback)
+- `HF_TOKEN_FALLBACK`
+- `HF_CHAT_MODEL`
+- `HF_REASONER_MODEL`
+- `HF_TIMEOUT_MS`
 
-CLI example:
+OpenRouter:
 
-```powershell
-cd "G:\BuildFest Hackathon\sme-ai-dashboard"
-vercel env add HF_TOKEN production
-vercel env add HF_CHAT_MODEL production
-vercel env add HF_REASONER_MODEL production
-vercel --prod
-```
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_API_KEY_FALLBACK`
+- `OPENROUTER_MODEL`
+- `OPENROUTER_MODEL_FALLBACKS`
+- `OPENROUTER_EMBED_MODEL`
 
-## 3) Frontend connection
+OCR:
 
-If frontend and API are in the same Vercel project, no change is required.
+- `OCR_SPACE_API_KEY`
+- `OCR_SPACE_API_KEY_FALLBACK`
 
-If frontend is separate, set this on frontend Vercel env:
+## Fallback Behavior
 
-- `VITE_API_BASE_URL=https://<your-api-domain>`
+The current code supports:
 
-## Notes
+- primary key
+- fallback key
+- lightweight in-memory preference for the last working key on warm processes
 
-- Hugging Face Inference Providers has a free monthly credit quota and then pay-as-you-go.
-- Free Hugging Face Spaces sleep when inactive; Vercel serverless is better for always-online API routes with this codebase.
+This reduces repeated failures when the first key is temporarily out of credit, rate limited, or unavailable.
+
+## Suggested Deployment Strategy
+
+For Vercel:
+
+- keep frontend and serverless API in the same project if possible
+- set all required provider env vars in project settings
+- redeploy after env changes
+
+For Render:
+
+- use the same env names as local and Vercel
+- keep provider configuration identical for easier debugging
+
+## Operational Advice
+
+- Rotate any key that was ever shared publicly.
+- Keep at least one fallback key funded and active before demos or production use.
+- If quality drops, verify:
+  - provider billing
+  - provider request logs
+  - current selected model names
+  - fallback key validity

@@ -1,22 +1,59 @@
-# ShopSense AI — Cursor Rules & Codebase Architecture Guidelines
+# ShopSense AI Cursor Rules
 
-This file configures AI assistants (Cursor, Windsurf, Claude, Copilot) to understand the technical architecture and coding boundaries of the ShopSense AI project.
+This repository is a product-ready SME retail analytics app. Assistants working here should preserve deployment parity, current UX behavior, and the deterministic grounding layer.
 
-## 1. Codebase Architecture
-*   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS 4, Recharts, PapaParse, Zod. Located under `/src`.
-*   **Backend**: Node/Express API routes. Supports Vercel serverless routing, Render Docker, and Hugging Face spaces. Located under `/server` and `/api`.
-*   **Database**: Supabase (PostgreSQL + pgvector). Schema migrations are under `/supabase/migrations`.
+## Core Rules
 
-## 2. Resiliency & Fallback Guidelines (CRITICAL)
-Always maintain the **Fail-Safe Principle** when modifying features:
-*   **Client-Side Fallbacks**: Any dynamic server route (like RAG, Query, Advice, Root Cause) must have a browser-level JavaScript equivalent located in `src/lib/` (e.g., `nlQuery.ts`, `structuredAdvice.ts`). If the backend API times out or is offline, the frontend MUST intercept the error and render the local client-side calculation instantly.
-*   **LLM Routing**: Primary local engine queries Ollama (`llama3.2` and `deepseek-r1`). Fallback routes through Hugging Face Inference Providers (`Qwen 2.5`) and OpenRouter.
+1. Prefer minimal, centralized fixes over broad rewrites.
+2. Preserve local and Vercel parity unless the task explicitly requires divergence.
+3. Keep current product behavior grounded in analytics and data, not only LLM output.
+4. Do not expose secrets in code, docs, commits, or client-side environment variables.
+5. Treat `/docs` as part of the product. If architecture or product capabilities change materially, keep docs content accurate.
 
-## 3. Coding Conventions & Code Style
-*   **Language**: Strict TypeScript for frontend, ES Modules (`.mjs`) for server backend.
-*   **No Code bloat**: Keep components modular, small, and lightweight.
-*   **Formatting**: Keep standard ESLint and Prettier rules active.
+## Product Reality
 
-## 4. Security & Environment Variables
-*   **Rule**: NEVER write, import, or commit raw private API keys.
-*   **Ignored Files**: `.env` and `.env.local` must remain in `.gitignore`. Only reference credentials via `process.env` (server) or `import.meta.env` (client).
+The current product includes:
+
+- additive CSV imports
+- supplier memo OCR with preview and confirm flow
+- live inventory operations
+- Bangla/English UI
+- festival-aware analytics
+- weather advice
+- Shop Analyzer chat UI
+- individual product analysis
+- provider key fallback for OpenRouter, Hugging Face, and OCR.Space
+
+Do not describe removed or outdated flows as if they still exist.
+
+## Architecture Guidance
+
+- Frontend lives in `src/`
+- Express backend lives in `server/`
+- Vercel serverless entry lives in `api/index.mjs`
+- Docs content is data-driven through `server/lib/docs/defaultContent.mjs` and `data/docs/`
+
+When changing providers:
+
+- OpenRouter changes belong in `server/openrouter.mjs`
+- Hugging Face changes belong in `server/lib/intelligence/llm/ollamaClient.mjs`
+- OCR.Space changes belong in `server/lib/memo/ocrSpace.mjs`
+
+## Fallback and Reliability
+
+- Keep deterministic fallbacks intact.
+- Do not remove client-side fallback logic without replacing it with an equivalent safe path.
+- Retry and provider fallback logic should stay small, readable, and centralized.
+
+## Documentation Standards
+
+- Keep README and deploy docs GitHub-ready.
+- Avoid outdated references to Gemini-first flows unless they still exist in code.
+- Mention current env names and current deployment paths.
+- If docs diagrams are touched, ensure they reflect the actual shipped architecture.
+
+## Output Style for Future Maintainers
+
+- Prefer small, readable modules.
+- Avoid hidden magic.
+- Use explicit names for runtime behavior, data semantics, and user-facing flows.

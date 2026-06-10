@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { useI18n } from '../lib/i18n'
+import { useI18n } from '../lib/useI18n'
 import { labelCategory } from '../lib/localeCopy'
 import type { AnalyticsSummary } from '../types'
 
@@ -21,6 +21,11 @@ export function CategoryChart({ analytics }: CategoryChartProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm text-left">
       <h3 className="text-sm font-semibold text-slate-900 mb-2">{ui.categorySalesTitle}</h3>
+      <p className="mb-2 text-xs leading-relaxed text-slate-600">
+        {data[0]
+          ? `${data[0].name} is currently carrying the largest share in this view. Use the pie to compare which categories are driving money now versus which ones mainly hold stock value.`
+          : 'This pie chart helps separate earning categories from categories that are mostly holding inventory value.'}
+      </p>
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}>

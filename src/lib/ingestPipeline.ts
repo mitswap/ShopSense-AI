@@ -26,6 +26,7 @@ function canonicalToShop(
     string,
     { product: Product; lastDate: string }
   >()
+  const firstStockBySku = new Map<string, string>()
   const sales: SaleRecord[] = []
 
   for (let i = 0; i < valid.length; i++) {
@@ -35,6 +36,10 @@ function canonicalToShop(
 
     const existing = productLatest.get(sku)
     const unitPrice = r.unit_price
+    const earliestDate = firstStockBySku.get(sku)
+    if (!earliestDate || r.date < earliestDate) {
+      firstStockBySku.set(sku, r.date)
+    }
     const prod: Product = {
       id,
       sku,
@@ -44,6 +49,7 @@ function canonicalToShop(
       stockQty: r.stock,
       unitCost: r.unit_cost,
       unitPrice,
+      firstStockDate: firstStockBySku.get(sku) ?? r.date,
     }
 
     if (!existing || r.date >= existing.lastDate) {
@@ -70,7 +76,10 @@ function canonicalToShop(
   return {
     shopId: `shop-${Date.now()}`,
     shopName,
-    products: Array.from(productLatest.values()).map((x) => x.product),
+    products: Array.from(productLatest.values()).map(({ product }) => ({
+      ...product,
+      firstStockDate: firstStockBySku.get(product.sku) ?? product.firstStockDate,
+    })),
     sales,
     updatedAt: new Date().toISOString(),
     schemaMappings: mappings,

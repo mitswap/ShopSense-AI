@@ -12,9 +12,6 @@ interface Credential extends AppUser {
 
 const USERS: Credential[] = [
   { username: 'owner1', password: 'shopsense123', displayName: 'Owner One', role: 'owner' },
-  { username: 'owner2', password: 'shopsense456', displayName: 'Owner Two', role: 'owner' },
-  { username: 'admin', password: 'docsadmin2026', displayName: 'Docs Admin', role: 'admin' },
-  { username: 'superadmin', password: 'buildfest2026', displayName: 'Super Admin', role: 'super_admin' },
 ]
 
 const SESSION_KEY = 'sme-ai-dashboard-session'

@@ -2,10 +2,34 @@
  * Single Vercel serverless function — routes all /api/* (Hobby plan: max 12 functions).
  */
 
+async function ensureParsedBody(req) {
+  if (req.body !== undefined) return
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method ?? '')) return
+
+  const chunks = []
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
+  }
+
+  const raw = Buffer.concat(chunks).toString('utf8').trim()
+  if (!raw) {
+    req.body = {}
+    return
+  }
+
+  try {
+    req.body = JSON.parse(raw)
+  } catch {
+    req.body = raw
+  }
+}
+
 export default async function handler(req, res) {
   const path = (req.url ?? '/api').split('?')[0]
 
   try {
+    await ensureParsedBody(req)
+
     if (path === '/api/status' || path.endsWith('/api/status')) {
       const { handleStatus } = await import('../server/handlers/status.mjs')
       return handleStatus(req, res)
@@ -34,9 +58,17 @@ export default async function handler(req, res) {
       const { handleSchemaDetect } = await import('../server/handlers/schemaDetect.mjs')
       return handleSchemaDetect(req, res)
     }
+    if (path === '/api/memo/preview' || path.endsWith('/api/memo/preview')) {
+      const { handleMemoPreview } = await import('../server/handlers/memoPreview.mjs')
+      return handleMemoPreview(req, res)
+    }
     if (path === '/api/rag/search' || path.endsWith('/api/rag/search')) {
       const { handleRagSearch } = await import('../server/handlers/rag.mjs')
       return handleRagSearch(req, res)
+    }
+    if (path === '/api/weather/advice' || path.endsWith('/api/weather/advice')) {
+      const { handleWeatherAdvice } = await import('../server/handlers/weather.mjs')
+      return handleWeatherAdvice(req, res)
     }
     if (path === '/api/docs/access' || path.endsWith('/api/docs/access')) {
       const { handleDocsAccess } = await import('../server/handlers/docs.mjs')

@@ -1,35 +1,75 @@
-# ShopSense AI — Multi-Agent System Specification
+# ShopSense AI Agent and Runtime Notes
 
-This file defines the role specifications, prompt templates, and boundaries of the autonomous virtual agent crew utilized by the ShopSense AI backend orchestrator.
+This file describes the current reasoning and task-routing model used by the ShopSense AI backend. It is a product architecture reference, not a promise that every named agent exists as an isolated file at all times.
 
----
+## Runtime Philosophy
 
-## 👥 The Agent Crew
+ShopSense AI uses a hybrid reasoning model:
 
-### 1. The Coordinator (`orchestrator.mjs`)
-*   **Role**: Router & Coordinator
-*   **Intent Mappings**: Analyzes incoming natural queries and routes tasks dynamically based on matched keywords:
-    *   `inventory`, `stock`, `reorder` ──► `inventoryAgent`
-    *   `sales`, `revenue`, `trend` ──► `salesAgent`
-    *   `why`, `explain`, `root` ──► `insightAgent`
-*   **Task**: Aggregates outputs from active agents and hands the unified context block to the LLM.
+- deterministic analytics for business facts
+- task-based routing for AI-assisted explanation
+- provider-level fallback across cloud models
+- optional local compatibility with Ollama-style flows
 
-### 2. The Inventory Agent (`inventoryAgent.mjs`)
-*   **Role**: Inventory & Supply Chain Expert
-*   **Data Boundaries**: Accesses `analytics.lowStockCount`, `analytics.deadStockValue`, and raw product levels.
-*   **Task**: Detects immediate stockout risks, counts items under 14-day stock cover, and flags reorder alerts.
+The goal is grounded retail operations support, not free-form generic chat.
 
-### 3. The Sales Agent (`salesAgent.mjs`)
-*   **Role**: Financial Revenue & Growth Analyst
-*   **Data Boundaries**: Accesses `analytics.totalRevenue`, `analytics.revenueByDay`, and forecast models.
-*   **Task**: Tracks sales velocity, reports top category shares, and identifies upward sales momentum patterns.
+## Current Functional Roles
 
-### 4. The Insight Agent (`insightAgent.mjs`)
-*   **Role**: Root-Cause Diagnostic Specialist
-*   **Data Boundaries**: Accesses transactional relationships, co-occurrence graphs, and alert messages.
-*   **Task**: Connects numeric shifts to qualitative events, generating pricing bundles and festival preparation suggestions.
+### 1. Coordinator
 
-### 5. The Translation Agent (`translationAgent.mjs`)
-*   **Role**: Conversational Localization Specialist
-*   **Data Boundaries**: Dictionary tables and natural Bengali script maps.
-*   **Task**: Directs local Llama/DeepSeek models to translate complex retail phrases into simple, warm, Bangladeshi shopkeeper-friendly Bengali script.
+- Interprets request type
+- Selects the right business context
+- Routes to deterministic logic, AI enrichment, or both
+- Keeps local/serverless behavior aligned as much as possible
+
+### 2. Inventory Reasoning Layer
+
+- Works with stock levels, reorder risk, low stock, slow movers, and dead stock
+- Uses inventory-cycle-aware calculations such as `firstStockDate`
+- Supports additive imports and memo-driven stock updates
+
+### 3. Sales and Festival Reasoning Layer
+
+- Uses revenue, quantity sold, forecast context, and inferred festival windows
+- Supports questions like restocking near Eid or Puja
+- Feeds product-level and festival-level insight into the Shop Analyzer and advice system
+
+### 4. Root Cause / Product Analysis Layer
+
+- Explains why a specific product changed in performance
+- Combines computed context with AI output when available
+- Uses the UI label `Individual product analysis`
+
+### 5. Weather Reasoning Layer
+
+- Provides today-specific advice for a shop city
+- Helps connect weather context to likely winners, likely losers, and store actions
+
+### 6. Localization Layer
+
+- Supports Bangla and English UI and assistant-facing copy
+- Uses translation and label mapping to reduce English leakage in Bangla mode
+
+## Provider Routing
+
+The current cloud/runtime stack supports:
+
+- Hugging Face
+- OpenRouter
+- OCR.Space
+- optional local Ollama compatibility
+
+Primary and fallback keys now exist for:
+
+- OpenRouter
+- Hugging Face
+- OCR.Space
+
+This fallback logic is centralized in provider modules instead of spread across handlers.
+
+## Important Boundaries
+
+- Deterministic analytics remain the factual foundation.
+- AI should explain and enrich, not replace computed business facts.
+- OCR import must stay review-first before inventory write.
+- Documentation should reflect the current runtime and product behavior.

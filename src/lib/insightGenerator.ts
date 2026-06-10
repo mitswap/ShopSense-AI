@@ -1,4 +1,4 @@
-import type { Locale } from './i18n'
+import type { Locale } from './i18n-types'
 import {
   feedBundle,
   feedDeadStock,
@@ -23,7 +23,7 @@ import type {
 import { productSalesTrend } from './analyticsEngine'
 
 export function generateDataInsights(
-  products: Product[],
+  _products: Product[],
   _sales: SaleRecord[],
   analytics: AnalyticsSummary,
   forecasts: ProductForecast[],
@@ -112,18 +112,15 @@ export function generateDataInsights(
   }
 
   if (analytics.deadStockCount > 0) {
-    const dead = products.filter((p) => {
-      const f = forecasts.find((x) => x.sku === p.sku)
-      return f && f.avgDailySales < 0.1 && p.stockQty > 30
-    })
-    if (dead[0]) {
-      const { title, body } = insightDeadStock(locale, dead[0].name, dead[0].stockQty)
+    const dead = analytics.deadStockItems[0]
+    if (dead) {
+      const { title, body } = insightDeadStock(locale, dead.name, dead.qty)
       insights.push({
         id: 'dead-stock',
         type: 'anomaly',
         titleBn: title,
         explanationBn: body,
-        metrics: { stock: dead[0].stockQty },
+        metrics: { stock: dead.qty },
         confidence: 0.8,
       })
     }
@@ -147,8 +144,6 @@ export function generateDecisionFeed(
       f.name,
       f.daysUntilStockout,
       f.suggestedReorder,
-      f.currentStock,
-      f.avgDailySales,
     )
     feed.push({
       id: `feed-stockout-${f.sku}`,

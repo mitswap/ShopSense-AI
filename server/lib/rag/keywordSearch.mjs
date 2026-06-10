@@ -1,4 +1,6 @@
-import { KNOWLEDGE_SEED } from '../../knowledge-data.mjs'
+import { buildExpandedKnowledgeSeed } from '../../knowledge-data.mjs'
+
+const KNOWLEDGE_INDEX = buildExpandedKnowledgeSeed()
 
 function scoreArticle(article, terms) {
   const hay = `${article.category} ${article.content} ${article.content_bn ?? ''}`.toLowerCase()
@@ -19,7 +21,7 @@ export function keywordSearch(query, limit = 5) {
     .split(/[\s,।.?!]+/)
     .filter((t) => t.length > 1)
 
-  const ranked = KNOWLEDGE_SEED.map((a) => ({
+  const ranked = KNOWLEDGE_INDEX.map((a) => ({
     id: a.id,
     title: a.category,
     category: a.category,

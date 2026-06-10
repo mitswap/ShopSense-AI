@@ -35,7 +35,15 @@ export async function handleNlQuery(req, res) {
     answerBn: result.answerBn,
     intent: result.intent,
     dataUsed: result.dataUsed,
-    method: result.provider ?? 'agentic',
+    method: result.method ?? result.provider ?? 'agentic',
+    provider: result.provider ?? 'agentic',
     ragMode: result.ragMode,
+    reasoningPath: result.reasoningPath ?? [],
+    evidenceUsed: result.evidenceUsed ?? [],
+    confidence: result.confidence ?? 0,
+    validation: result.validation ?? { ok: true, errors: [] },
+    attempts: result.attempts ?? [],
+    fallbackDepth: result.fallbackDepth ?? 0,
+    latencyMs: result.latencyMs ?? 0,
   })
 }

@@ -26,8 +26,20 @@ export async function saveShopToSupabase(data: ShopData): Promise<void> {
   })
   if (shopErr) throw shopErr
 
+  const { error: delSalesErr } = await sb
+    .from('sales')
+    .delete()
+    .eq('shop_id', data.shopId)
+  if (delSalesErr) throw delSalesErr
+
+  const { error: delProductsErr } = await sb
+    .from('products')
+    .delete()
+    .eq('shop_id', data.shopId)
+  if (delProductsErr) throw delProductsErr
+
   for (const p of data.products) {
-    const { error: pErr } = await sb.from('products').upsert({
+    const baseRow = {
       id: p.id,
       shop_id: data.shopId,
       sku: p.sku,
@@ -36,18 +48,44 @@ export async function saveShopToSupabase(data: ShopData): Promise<void> {
       category: p.category,
       stock_qty: p.stockQty,
       unit_cost: p.unitCost,
+      first_stock_date: p.firstStockDate ?? null,
       updated_at: new Date().toISOString(),
+    }
+    let { error: pErr } = await sb.from('products').upsert({
+      ...baseRow,
+      unit_price: p.unitPrice,
     })
+    if (pErr) {
+      ;({ error: pErr } = await sb.from('products').upsert({
+        id: p.id,
+        shop_id: data.shopId,
+        sku: p.sku,
+        name: p.name,
+        name_bn: p.nameBn,
+        category: p.category,
+        stock_qty: p.stockQty,
+        unit_cost: p.unitCost,
+        unit_price: p.unitPrice,
+        updated_at: new Date().toISOString(),
+      }))
+    }
+    if (pErr) {
+      ;({ error: pErr } = await sb.from('products').upsert({
+        id: p.id,
+        shop_id: data.shopId,
+        sku: p.sku,
+        name: p.name,
+        name_bn: p.nameBn,
+        category: p.category,
+        stock_qty: p.stockQty,
+        unit_cost: p.unitCost,
+        updated_at: new Date().toISOString(),
+      }))
+    }
     if (pErr) throw pErr
   }
 
   if (data.sales.length > 0) {
-    const { error: delErr } = await sb
-      .from('sales')
-      .delete()
-      .eq('shop_id', data.shopId)
-    if (delErr) console.warn(delErr)
-
     const rows = data.sales.map((s) => ({
       id: s.id,
       shop_id: data.shopId,
@@ -95,7 +133,8 @@ export async function loadShopFromSupabase(shopId: string): Promise<ShopData | n
         category: p.category,
         stockQty: p.stock_qty,
         unitCost: p.unit_cost,
-        unitPrice: p.unit_cost,
+        unitPrice: p.unit_price ?? p.unit_cost,
+        firstStockDate: p.first_stock_date ?? undefined,
       }),
     ),
     sales: (sales ?? []).map(
@@ -112,17 +151,43 @@ export async function loadShopFromSupabase(shopId: string): Promise<ShopData | n
   }
 }
 
-export async function updateProductStock(
+export async function updateProductInventory(
   shopId: string,
   productId: string,
   stockQty: number,
+  unitPrice: number,
 ): Promise<void> {
   const sb = getSupabase()
   if (!sb) return
-  const { error } = await sb
+  let { error } = await sb
     .from('products')
-    .update({ stock_qty: stockQty, updated_at: new Date().toISOString() })
+    .update({
+      stock_qty: stockQty,
+      unit_price: unitPrice,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', productId)
     .eq('shop_id', shopId)
+  if (error) {
+    ;({ error } = await sb
+      .from('products')
+      .update({ stock_qty: stockQty, updated_at: new Date().toISOString() })
+      .eq('id', productId)
+      .eq('shop_id', shopId))
+  }
   if (error) throw error
+}
+
+export async function clearShopFromSupabase(shopId: string): Promise<void> {
+  const sb = getSupabase()
+  if (!sb) return
+
+  const { error: salesErr } = await sb.from('sales').delete().eq('shop_id', shopId)
+  if (salesErr) throw salesErr
+
+  const { error: productsErr } = await sb.from('products').delete().eq('shop_id', shopId)
+  if (productsErr) throw productsErr
+
+  const { error: shopErr } = await sb.from('shops').delete().eq('id', shopId)
+  if (shopErr) throw shopErr
 }

@@ -9,15 +9,17 @@ import {
 } from '../lib/insightGenerator'
 import { loadLocalShop, saveLocalShop } from '../lib/storage'
 import {
+  clearShopFromSupabase,
   isSupabaseConfigured,
   loadShopFromSupabase,
   saveShopToSupabase,
-  updateProductStock,
+  updateProductInventory,
 } from '../lib/supabase'
 import { addProductToShop, type NewProductInput } from '../lib/addProduct'
+import { applyMemoImportToShop } from '../lib/memoImport'
 import { mergeShopData } from '../lib/mergeShopData'
-import type { Locale } from '../lib/i18n'
-import type { ShopData } from '../types'
+import type { Locale } from '../lib/i18n-types'
+import type { InventoryUpdateInput, MemoLineItem, ShopData } from '../types'
 
 export function useShopData(userId: string, locale: Locale) {
   const [shop, setShop] = useState<ShopData | null>(null)
@@ -25,19 +27,28 @@ export function useShopData(userId: string, locale: Locale) {
 
   useEffect(() => {
     async function init() {
+      const local = loadLocalShop(userId)
+
+      if (local) {
+        setShop(local)
+        setLoading(false)
+        return
+      }
+
       if (isSupabaseConfigured) {
-        const local = loadLocalShop(userId)
-        if (local?.shopId) {
-          try {
-            const remote = await loadShopFromSupabase(local.shopId)
-            if (remote) setShop(remote)
-            else setShop(local)
-          } catch {
-            setShop(local)
+        const fallbackShopId = `shop-${userId}`
+        try {
+          const remote = await loadShopFromSupabase(fallbackShopId)
+          if (remote) {
+            setShop(remote)
+          } else {
+            setShop(null)
           }
+        } catch {
+          setShop(null)
         }
       } else {
-        setShop(loadLocalShop(userId))
+        setShop(null)
       }
       setLoading(false)
     }
@@ -45,43 +56,87 @@ export function useShopData(userId: string, locale: Locale) {
   }, [userId])
 
   const persist = useCallback(async (data: ShopData) => {
-    saveLocalShop(userId, data)
+    const normalized: ShopData = {
+      ...data,
+      shopId: data.shopId || `shop-${userId}`,
+      updatedAt: new Date().toISOString(),
+    }
+    saveLocalShop(userId, normalized)
     if (isSupabaseConfigured) {
       try {
-        await saveShopToSupabase(data)
+        await saveShopToSupabase(normalized)
       } catch (e) {
         console.error('Supabase save failed', e)
       }
     }
-    setShop(data)
+    setShop(normalized)
   }, [userId])
 
   const setShopData = useCallback(
     (data: ShopData, mergeWithExisting = true) => {
-      const merged = mergeWithExisting ? mergeShopData(shop, data) : data
-      void persist(merged)
+      const normalizedIncoming: ShopData = {
+        ...data,
+        shopId: shop?.shopId ?? data.shopId ?? `shop-${userId}`,
+        shopName: shop?.shopName ?? data.shopName,
+      }
+
+      const next = mergeWithExisting
+        ? mergeShopData(shop, normalizedIncoming)
+        : normalizedIncoming
+      void persist(next)
     },
-    [persist, shop],
+    [persist, shop, userId],
   )
 
   const updateStock = useCallback(
-    async (productId: string, stockQty: number) => {
+    async (productId: string, update: InventoryUpdateInput) => {
       if (!shop) return
+      const currentProduct = shop.products.find((p) => p.id === productId)
+      if (!currentProduct) return
+
+      const clampedStock = Math.max(0, update.stockQty)
+      const nextUnitPrice = Math.max(0, update.unitPrice)
+      const soldQty = Math.max(0, currentProduct.stockQty - clampedStock)
+      const today = new Date().toISOString().slice(0, 10)
+
       const products = shop.products.map((p) =>
-        p.id === productId ? { ...p, stockQty } : p,
+        p.id === productId ? { ...p, stockQty: clampedStock, unitPrice: nextUnitPrice } : p,
       )
-      const next = { ...shop, products }
+
+      const sales =
+        soldQty > 0
+          ? [
+              ...shop.sales,
+              {
+                id: `sale-${currentProduct.sku}-${today}-${Date.now()}`,
+                productId: currentProduct.id,
+                sku: currentProduct.sku,
+                saleDate: today,
+                qtySold: soldQty,
+                revenue: soldQty * nextUnitPrice,
+                unitPrice: nextUnitPrice,
+              },
+            ]
+          : shop.sales
+
+      const next = { ...shop, products, sales, updatedAt: new Date().toISOString() }
+
+      if (soldQty > 0) {
+        void persist(next)
+        return
+      }
+
       saveLocalShop(userId, next)
       setShop(next)
       if (isSupabaseConfigured) {
         try {
-          await updateProductStock(shop.shopId, productId, stockQty)
+          await updateProductInventory(shop.shopId, productId, clampedStock, nextUnitPrice)
         } catch (e) {
           console.error(e)
         }
       }
     },
-    [shop, userId],
+    [isSupabaseConfigured, persist, shop, userId],
   )
 
   const analytics = useMemo(
@@ -127,12 +182,37 @@ export function useShopData(userId: string, locale: Locale) {
     [shop, persist, userId],
   )
 
+  const importMemoRows = useCallback(
+    async (rows: MemoLineItem[]) => {
+      const next = applyMemoImportToShop(shop, userId, rows)
+      await persist(next)
+    },
+    [persist, shop, userId],
+  )
+
+  const resetShop = useCallback(async () => {
+    const currentShopId = shop?.shopId
+    localStorage.removeItem(`sme-ai-dashboard-shop-${userId}`)
+    setShop(null)
+    setLoading(false)
+
+    if (isSupabaseConfigured && currentShopId) {
+      try {
+        await clearShopFromSupabase(currentShopId)
+      } catch (e) {
+        console.error('Supabase reset failed', e)
+      }
+    }
+  }, [shop, userId])
+
   return {
     shop,
     loading,
     setShopData,
+    resetShop,
     updateStock,
     addProduct,
+    importMemoRows,
     analytics,
     forecasts,
     alerts,

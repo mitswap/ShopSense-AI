@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useI18n } from '../lib/i18n'
+import { useI18n } from '../lib/useI18n'
 import { labelCategory, labelProduct, labelRisk } from '../lib/localeCopy'
-import type { Product, ProductForecast } from '../types'
+import type { InventoryUpdateInput, Product, ProductForecast } from '../types'
 
 interface StockTableProps {
   products: Product[]
   forecasts: ProductForecast[]
-  onUpdateStock: (productId: string, qty: number) => void
+  onUpdateStock: (productId: string, update: InventoryUpdateInput) => void
 }
 
 const riskColor = {
@@ -19,7 +19,8 @@ export function StockTable({ products, forecasts, onUpdateStock }: StockTablePro
   const { ui, locale } = useI18n()
   const forecastMap = new Map(forecasts.map((f) => [f.productId, f]))
   const [editing, setEditing] = useState<string | null>(null)
-  const [draft, setDraft] = useState<number>(0)
+  const [draftQty, setDraftQty] = useState<number>(0)
+  const [draftPrice, setDraftPrice] = useState<number>(0)
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden text-left">
@@ -33,6 +34,8 @@ export function StockTable({ products, forecasts, onUpdateStock }: StockTablePro
               <th className="px-3 py-2 text-left font-medium">{ui.product}</th>
               <th className="px-3 py-2">{ui.category}</th>
               <th className="px-3 py-2">{ui.quantity}</th>
+              <th className="px-3 py-2">{ui.unitCost}</th>
+              <th className="px-3 py-2">{ui.unitPrice}</th>
               <th className="px-3 py-2">{ui.daysLeft}</th>
               <th className="px-3 py-2">{ui.reorder}</th>
               <th className="px-3 py-2">{ui.risk}</th>
@@ -54,12 +57,26 @@ export function StockTable({ products, forecasts, onUpdateStock }: StockTablePro
                       <input
                         type="number"
                         min={0}
-                        value={draft}
-                        onChange={(e) => setDraft(Number(e.target.value))}
+                        value={draftQty}
+                        onChange={(e) => setDraftQty(Number(e.target.value))}
                         className="w-16 border border-slate-300 rounded px-1 py-0.5"
                       />
                     ) : (
                       p.stockQty
+                    )}
+                  </td>
+                  <td className="px-3 py-2">{Math.round(p.unitCost)}</td>
+                  <td className="px-3 py-2">
+                    {isEdit ? (
+                      <input
+                        type="number"
+                        min={0}
+                        value={draftPrice}
+                        onChange={(e) => setDraftPrice(Number(e.target.value))}
+                        className="w-20 border border-slate-300 rounded px-1 py-0.5"
+                      />
+                    ) : (
+                      p.unitPrice
                     )}
                   </td>
                   <td className="px-3 py-2">{f?.daysUntilStockout ?? '—'}</td>
@@ -79,7 +96,7 @@ export function StockTable({ products, forecasts, onUpdateStock }: StockTablePro
                         type="button"
                         className="text-brand-600 font-medium"
                         onClick={() => {
-                          onUpdateStock(p.id, draft)
+                          onUpdateStock(p.id, { stockQty: draftQty, unitPrice: draftPrice })
                           setEditing(null)
                         }}
                       >
@@ -91,7 +108,8 @@ export function StockTable({ products, forecasts, onUpdateStock }: StockTablePro
                         className="text-slate-600"
                         onClick={() => {
                           setEditing(p.id)
-                          setDraft(p.stockQty)
+                          setDraftQty(p.stockQty)
+                          setDraftPrice(p.unitPrice)
                         }}
                       >
                         {ui.editStock}
@@ -104,6 +122,11 @@ export function StockTable({ products, forecasts, onUpdateStock }: StockTablePro
           </tbody>
         </table>
       </div>
+      <p className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-medium text-slate-600">
+        {locale === 'bn'
+          ? 'স্টক কমালে সেটি বিক্রয় হিসেবে ধরা হবে, আর সেল প্রাইস বদলালে ভবিষ্যৎ লাইভ বিক্রয় সেই মূল্যে গণনা হবে।'
+          : 'Reducing stock records a live sale, and updating sell price changes how future live sales are valued.'}
+      </p>
     </div>
   )
 }

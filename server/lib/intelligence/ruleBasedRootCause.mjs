@@ -142,8 +142,7 @@ export function ruleBasedRootCause({ productQuery = '', context = '', locale = '
   const summaryBn =
     locale === 'bn'
       ? `${productText} বিক্রি ${trendText} দেখা যাচ্ছে। মূল কারণগুলো: ${causes.slice(0, 2).join(' ও ')}। করণীয়: ${actions.slice(0, 2).join(' এবং ')}।`
-      : `${productText} shows a ${trendText} pattern. Likely causes: ${causes.slice(0, 2).join(' and ')}. Recommended actions: ${actions.slice(0, 2).join(' and ')}.`
+      : `${productText} shows a ${trendText} pattern.\nLikely causes:\n${causes.slice(0, 2).join('\n')}\nRecommended actions:\n${actions.slice(0, 2).join('\n')}`
 
   return { summaryBn, likelyCauses: causes.slice(0, 3), actions: actions.slice(0, 3) }
 }
-
